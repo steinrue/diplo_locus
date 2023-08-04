@@ -1,0 +1,9 @@
+##Parameters used in Steinruecken & Song (2012): 
+### generation time 5 years, 
+### u01 = u10 = 1e-6, 
+### Ne = 2500, t0_asip = 7000/5 = 1400, t0_mc1r = 17000/5 = 3400
+##SampTimes.year.ago: 20000, 13100, 3700, 2800, 1100, 500 (BCE)
+##SampTimes.gen.ago: 4000, 2620, 740, 560, 220, 100
+locus	x1	n1	x2	n2	x3	n3	x4	n4	x5	n5	x6	n6
+ASIP	0	10	1	22	15	20	12	20	15	36	18	38
+MC1R	0	10	0	22	1	20	6	20	13	36	24	38
