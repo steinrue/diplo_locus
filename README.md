@@ -4,7 +4,7 @@
 
 This repo hosts Python CLI tool (`DiploLocus`) and python package (`diplo_locus`) for simulating and computing log-likelihoods for time series genetic data based on the diploid Wright-Fisher diffusion.
 
-To cite our application, use the reference (the method is described in the supplement):
+To cite our application, use the reference:
 
 >   Klunk, J., Vilgalys, T.P., Demeure, C.E. et al. Evolution of immune genes is associated with the Black Death. Nature 611, 312–319 (2022). https://doi.org/10.1038/s41586-022-05349-x
 
