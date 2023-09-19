@@ -97,6 +97,7 @@ def plot_reps(samples, trajectories, sampleTimes, notes, figname, reps=range(10)
     # now we plot
     fig, ax = plt.subplot_mosaic([[0], [1]], gridspec_kw={'height_ratios': [3, 1]})
     if include_traj and include_samples:
+        # assert traj_to_plot is not None and x_values is not None
         plot_obj = "samples and trajectories"
         for i in range(len(reps)):
             ax[0].plot(x_values, traj_to_plot[i, :], color=rep_colors[i], label=reps[i], ls='-')
@@ -308,7 +309,7 @@ def main(DL_args=None):
         args.init_u10 = 1 / (4 * args.Ne)
     elif args.initCond == "custom":
         initCond = 'choice'
-        assert args.initDistnFile is not None, 'Please provide the file name of the prior probability distribution.'
+        assert args.initDistnFile is not None, 'Please provide the file name of the initial condition probability distribution.'
         initValues, initProbs = load_custom_distn(args.initDistnFile)
         initFreq = None
         condInitSeg = False  # this won't be used anyways (for now)
@@ -400,7 +401,7 @@ def main(DL_args=None):
         notes += f'## Selection coefficients: ({s1}, {s2}), constant.\n'
 
     def _iter_mulate(_batch_sim, numReps, not_lost=False, not_fixed=False,
-                     last_sample_nonzero=False, last_popfreq_nonzero=False, minMAF=0.):
+                     last_sample_nonzero=False, last_popfreq_nonzero=False):
         r = 0
         samples = np.empty((numReps, len(sampleSizes)))
         trajectories = np.empty((numReps, 2 + int((sampleTimes[-1] - sampleTimes[0]) / args.deltaT)))

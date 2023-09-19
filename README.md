@@ -1,12 +1,14 @@
-<img align="left" src="diplolocus_logo.png" alt="Logo" width=35%/>
+<img align="left" src="https://github.com/steinrue/diplo_locus/blob/main/diplolocus_logo.png?raw=true" alt="Logo" width=35%/>
 
-# `DiploLocus`: Inferring single-locus diploid selection from temporal allele frequencies
+<br/><br/><br/><br/><br/>
+
+# `diplo-locus`: A lightweight toolkit for inference and simulation of time-series genetic data under general diploid selection
 
 This repo hosts Python CLI tool (`DiploLocus`) and python package (`diplo_locus`) for simulating and computing log-likelihoods for time series genetic data based on the diploid Wright-Fisher diffusion.
 
 To cite our application, use the reference:
 
->   Klunk, J., Vilgalys, T.P., Demeure, C.E. et al. Evolution of immune genes is associated with the Black Death. Nature 611, 312–319 (2022). https://doi.org/10.1038/s41586-022-05349-x
+>   Cheng, X. and Steinruecken, M. (2023) diplo-locus: A lightweight toolkit for inference and simulation of time-series genetic data under general diploid selection. _XYZ_(xy):1234
 
 --------------------
 
@@ -41,8 +43,8 @@ To cite our application, use the reference:
         * [Simulate discrete time-varying selection](#sim_piece)
       </details>
  
- * [`diplo_locus` package](src/README.md)
- * [Examples](examples/README.md)
+ * [`diplo_locus` package](https://github.com/steinrue/diplo_locus/blob/main/src/README.md)
+ * [Examples](https://github.com/steinrue/diplo_locus/blob/main/examples/README.md)
 
 ------------------------------------------------------------------------
 # Getting Started
@@ -55,7 +57,7 @@ The CLI scripts are designed to work in a unix shell-based command line working 
 Both the API and CLI are included in the PyPI package `diplo-locus`. To install:
 
 ```shell
-$ pip install diplo-locus
+pip install diplo-locus
 ```
 
 ### Install from GitHub
@@ -63,17 +65,17 @@ $ pip install diplo-locus
 To install the latest version, the user can download the GitHub repository with
  
 ```shell
-$ git clone https://github.com/steinrue/diplo_locus.git
-$ cd diplo_locus/
+git clone https://github.com/steinrue/diplo_locus.git
+cd diplo_locus/
 ```
 
  Both the CLI scripts and function package are in Python3 and require at least Python3.8 to run. To install the package in your system, stay in the same directory, use
 ```shell
-$ pip install .
+pip install .
 ```
 or
 ```shell
-$ python setup.py install
+python setup.py install
 ```
 
 ------------------------------------
@@ -83,7 +85,7 @@ $ python setup.py install
 
 Once set up is complete, running the main CLI script without arguments or with `-h` argument would print out
 ```shell
-$ DiploLocus
+DiploLocus
 #usage: DiploLocus [-h]  ...
 #
 #DiploLocus CLI
@@ -110,12 +112,12 @@ $ DiploLocus
 Indicating `likelihood` to the main CLI script would call `DiploLocus_likelihood.py`, which by itself is also fully functional (with `diplo_locus` package installed). In other words, the commands below are equivalent.
 
  ```shell
-$ DiploLocus likelihood
-$ DiploLocus-likelihood
+DiploLocus likelihood
+DiploLocus-likelihood
  ````
  Running one of the above commands will show
  ```shell
-$ DiploLocus likelihood
+DiploLocus likelihood
 #usage: DiploLocus likelihood [-h] --u01 U01 [--u10 U10] --Ne NE [--gen_time GEN_TIME]
 #                             (-i INFILE | --vcf VCFFILE | --read_LL_from ONGRID_LL_FILE)
 #                             [--info INFOFILE] [--ID_col IDCOLNAME]
@@ -154,7 +156,7 @@ With `-h` or `--help`, the user can retrieve the detailed help page for more inf
 
 
 ```shell
-$ DiploLocus likelihood -h
+DiploLocus likelihood -h
 #usage: DiploLocus likelihood [-h] --u01 U01 [--u10 U10] --Ne NE [--gen_time GEN_TIME]
 #                             (-i INFILE | --vcf VCFFILE | --read_LL_from ONGRID_LL_FILE)
 #                             [--info INFOFILE] [--ID_col IDCOLNAME]
@@ -459,37 +461,37 @@ Either on- or off-grid, when the given parameters satisfy additive selection (do
 ## `simulate` Mode
 <a id="sim_CLI"> </a>
 
-The commands below are equivalent:
-
-```shell
-$ DiploLocus simulate
-$ DiploLocus-simulate
-````
-
 ### Quick Guide
 
 <a id="quickSim"></a>
 
+As with `likelihood`, indicating `simulate` to the main CLI script would call `DiploLocus_simulate.py`, which by itself is also fully functional. The commands below are equivalent:
 
 ```shell
-$ DiploLocus simulate
+DiploLocus simulate
+DiploLocus-simulate
+````
+ Running one of the above commands will show
+
+```shell
+DiploLocus simulate
 # usage: DiploLocus simulate [-h] --u01 U01 [--u10 U10] --Ne NE --s1 S1 --s2 S2
-#                               [--selection_change_times SELECTIONCHANGETIMES] --sample_times
-#                               SAMPLETIMES --sample_sizes SAMPLESIZES --num_rep NUMREP
-#                               [--last_popfreq_nonzero] [--last_sample_nonzero] [--not_lost_ever]
-#                               --init {initFreq,statBeta,uniform,custom} [--initFreq INITFREQ]
-#                               [--initDistn INITDISTNFILE] [--init_u01 INIT_U01]
-#                               [--init_u10 INIT_U10] [--deltaT DELTAT] [--seed SD] -o OUTPREFIX
-#                               [--write_traj] [--gzip_output {s,t,st,ts}] [--plot_trajs]
-#                               [--plot_samples] [--reps_to_plot REPS_TO_PLOT]
-# DiploLocus simulate: error: the following arguments are required: --u01, --Ne, --s1, --s2, --sample_times, --sample_sizes, --num_rep, --init, -o/--out_prefix
+#                           [--selection_change_times SELECTIONCHANGETIMES] --sample_times SAMPLETIMES
+#                           --sample_sizes SAMPLESIZES --num_rep NUMREP [--last_popfreq_nonzero]
+#                           [--last_sample_nonzero] [--not_lost] [--not_fixed] [--minMAF MINMAF]
+#                           --init {initFreq,statBeta,uniform,custom} [--initFreq INITFREQ]
+#                           [--initDistn INITDISTNFILE] [--init_u01 INIT_U01] [--init_u10 INIT_U10] -o
+#                           OUTPREFIX [--write_traj] [--gzip_output {s,t,st,ts}] [--plot_trajs]
+#                           [--plot_samples] [--reps_to_plot REPS_TO_PLOT] [--deltaT DELTAT]
+#                           [--seed SD]
+#DiploLocus simulate: error: the following arguments are required: --u01, --Ne, --s1, --s2, --sample_times, --sample_sizes, --num_rep, --init, -o/--out_prefix
 ```
 Likewise, the user can check out the full help page with `-h`
 
 <details><summary>Click here to see full help page</summary>
 
 ```shell
-$ DiploLocus simulate -h
+DiploLocus simulate -h
 # usage: DiploLocus simulate [-h] --u01 U01 [--u10 U10] --Ne NE --s1 S1 --s2 S2
 #                              [--selection_change_times SELECTIONCHANGETIMES] --sample_times
 #                              SAMPLETIMES --sample_sizes SAMPLESIZES --num_rep NUMREP
@@ -571,15 +573,40 @@ $ DiploLocus simulate -h
 
 </details>
 
-[//]: # (### Input and Output)
+### Input and Output
 
-[//]: # (<a id="sim_IO"> </a>)
+<a id="sim_IO"> </a>
 
-[//]: # ()
-[//]: # (Compared with the `likelihood` mode)
+The input required for simulations are, in comparison, simpler than that of the `likelihood` mode. Similarly, in the very least, the user must provide basic population parameters, _i.e._ mutation rate (`u01`, `u10`) and effective population size (`Ne`), sample times, sample sizes, and the number of replicates. In addition, same as in `likelihood`, the user must also specify the initial condition with `--init`. It is highly recommended that the user also specify the random seed (through `--seed`) as well. Example 3 demonstrates in detail how to parameterize a set of simulations.
+
+For convenience, the table below lists the categories of input information and their arguments:
+
+
+|                              | <b>Required Args</b>                                                                   | <b>Optional Args</b>                                                                                                        |
+|------------------------------|----------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| <b>Population Parameters</b> | `--Ne [pop size]` <br> `--u01 [forward mut rate (gen/nt)]`                             | `--u10 [backward mut rate (gen/nt)]`                                                                                        |
+| <b>Sample Information</b>    | ` --sample_sizes <n1,n2,...>` <br/> `--sample_times <t1,t2,...>` <br/> `--num_rep <N>` | `--seed [seed]`<br/> `--deltaT [dT]`                                                                                        |
+| <b>Initial Condition</b>     | `--init {"uniform"/"initFreq"/"statBeta"}`                                             | `--initFreq [freq]`<br/> `--init_[u01/u10] [fore-/backward mut rate (gen/nt)]`<br/> `--initDistn <distnFile>`               |
+| <b>Selection Parameters</b>  | `--s1`, `--s2` <br/> followed by either a single value<br/>or comma-delimited values   | `--selection_change_times [t12,t23,...]`                                                                                    |
+| <b>Output Options</b>        | `-o <prefix>` or `--out_prefix <prefix>`                                               | `--gzip_output {s,t,st,ts}` <br/>`--write_traj`, <br/> `--plot_trajs`, `--plot_samples` <br/>`--reps_to_plot [id1,id2,...]` |
+
+
+As for the output, the software writes out the simulated samples as an allele count table (with `_samples.count` suffix) in the same format expected by the `likelihood` mode. See `example_outputs/Ex3_horseParam_piecewise_unifInit_200reps_seed1234_nonzeroLastSamples_notLost_samples.count`
+
+When `--write_trajs` flag is on, an additional text file (with `.traj` suffix) will be generated to list out the allele frequency trajectories of all the replicates. More specifically, for `N` replicates simulated over a duration of `K` generations and `dT` iteration time ("delta T"), the file would be a comma-delimited `N`x`K/dT` table of allele frequency at each iteration, with each row representing a replicate. 
+
+When a large number of replicates or a large number of iterations are simulated, the user can choose to output simulated data in `.gz` format. To do so, use `--gzip_output {s|t}` with `s` and `t` for "samples" and "trajectories", respectively.
+
+For the user's convenience, the software provide the option to plot out the sample and/or population allele frequency trajectories at the end of the simulation. The flags `--plot_trajs` and `--plot_samples` allow the user to turn on these options. Without the `--reps_to_plot [id1,id2,...]` instruction, the software will only consider the first ten replicates.
+
+To simulate discrete time-varying selection, the user can make use of `--selection_change_time` flag, pairing it with values provided to `--s1` and `--s2`. Example 3 shows in detail how to simulate data under such selection models.
+
 
 [//]: # (### Simulate discrete time-varying selection)
+
 [//]: # (<a id="sim_piece"></a>)
+
+
 
 
 

@@ -3,9 +3,9 @@
 Command-line interfacing Python script to compute likelihoods of allele frequency time series under general diploid selection in the Wright-Fisher diffusion.
 """
 import sys, os, re, time
-import gzip
 import numpy as np
 import pandas as pd
+pd.set_option('display.max_colwidth', 255)
 
 # local import
 # from diplo_locus import diffusion_core
@@ -105,27 +105,6 @@ def parse_sampling_times(times: str, times_ago: str, gen_time=1, t0=None, force_
     return sampleTimes, sample_cols_toKeep
 
 
-def parse_ind_arg(inds: str, type: str = "inds"):
-    # the same function work for both inds and SNP IDs
-    # check if it's a file
-    if os.path.isfile(inds):
-        print(f'Reading select {type} from {inds}')
-        ## read in the file
-        with open(inds, "r") as ind_file:
-            ind_list = ind_file.read()
-        ind_file.close()
-        ## recognize separators: comma, tab, or newline
-        ind_list = re.split(r'[,\r\n\t]{1}', ind_list)
-    else:
-        try:
-            ind_list = inds.split(",")
-        except Exception as e:
-            print(e)
-            return False
-    print(f'{len(ind_list)} {type} in total.')
-    return ind_list
-
-
 ago_regex = re.compile(r'[A|a]go')
 
 
@@ -151,10 +130,10 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
     :return:
     """
     infoTable = pd.read_csv(infofile, sep="\t")  # , comment="#", header=0
-    assert ID_colname in infoTable.columns, ValueError(f"VCF Info file must have a column named \"{ID_colname}\".")
+    assert ID_colname in infoTable.columns, ValueError(f"VCF Info file must have a column named \"{ID_colname}\". Or specifiy ID-column using --ID_col.")
     if time_colname is not None:
         assert (time_colname in infoTable.columns) or (time_colname[:-4] in infoTable.columns), \
-            ValueError(f"VCF Info file must have a column named \"{time_colname}\".")
+            ValueError(f"VCF Info file must have a column named \"{time_colname}\". Or specifiy ID-column using --ID_col.")
     # only keep the individual in inds
     if inds is not None:
         assert isinstance(inds, list), f'type(inds) = {type(inds)}'
@@ -225,37 +204,39 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
                     f'Column \"{time_colname}\" missing in the info table.')
             infoTable = _count_time_backward(infoTable, time_colname, t0)
     # if any column has "ago" in it
-    elif np.any(np.array([ago_regex.search(name) for name in infoTable.columns], dtype=bool)):
-        assert 'Gen_Ago' in infoTable.columns or 'Time_Ago' in infoTable.columns, \
-            f'Column for sampling time unspecified. Current column names: {infoTable.columns}, gen_time={gen_time}.'
-        if 'Gen_Ago' in infoTable.columns and 'Time_Ago' not in infoTable.columns:
-            timeColName = 'Gen_Ago'
-        elif 'Time_Ago' in infoTable.columns and 'Gen_Ago' not in infoTable.columns:
-            if gen_time == 1:
-                print('Generation time not specified. Assume values under \"Time\" column are numbers of generations.')
-            timeColName = 'Time_Ago'
-        else:  # if both are in the table
-            print('Both\"Time_Ago\" and \"Gen_Ago\" exist in table. Only reading numbers in \"Gen\" column.',
-                  infoTable.columns)
-            # shall we check whether time/gen_time == gen? <--- maybe not, in case gen_time changes over time
-            timeColName = 'Gen_Ago'
-        # count backward
-        infoTable = _count_time_backward(infoTable, timeColName, t0)
     else:
-        assert 'Gen' in infoTable.columns or 'Time' in infoTable.columns, \
-            f'Column for sampling time unspecified. Current column names: {infoTable.columns}, gen_time={gen_time}.'
-        if 'Gen' in infoTable.columns and 'Time' not in infoTable.columns:
-            timeColName = 'Gen'
-        elif 'Time' in infoTable.columns and 'Gen' not in infoTable.columns:
-            if gen_time == 1:
-                print('Generation time not specified. Assume values under \"Time\" column are numbers of generations.')
-            timeColName = 'Time'
-        else:  # if both are in the table
-            print('Both\"Time\" and \"Gen\" exist in table. Only reading numbers in \"Gen\" column.')
-            # shall we check whether time/gen_time == gen? <--- maybe not, in case gen_time changes over time
-            timeColName = 'Gen'
-        # count forward
-        infoTable = _count_time_forward(infoTable, timeColName, t0)
+        raise ValueError ("Please specify column in input that has information for sampling times using either --time_col or --time_ago_col0.\n")
+    # elif np.any(np.array([ago_regex.search(name) for name in infoTable.columns], dtype=bool)):
+    #     assert 'Gen_Ago' in infoTable.columns or 'Time_Ago' in infoTable.columns, \
+    #         f'Column for sampling time unspecified. Current column names: {infoTable.columns}, gen_time={gen_time}.'
+    #     if 'Gen_Ago' in infoTable.columns and 'Time_Ago' not in infoTable.columns:
+    #         timeColName = 'Gen_Ago'
+    #     elif 'Time_Ago' in infoTable.columns and 'Gen_Ago' not in infoTable.columns:
+    #         if gen_time == 1:
+    #             print('Generation time not specified. Assume values under \"Time\" column are numbers of generations.')
+    #         timeColName = 'Time_Ago'
+    #     else:  # if both are in the table
+    #         print('Both\"Time_Ago\" and \"Gen_Ago\" exist in table. Only reading numbers in \"Gen\" column.',
+    #               infoTable.columns)
+    #         # shall we check whether time/gen_time == gen? <--- maybe not, in case gen_time changes over time
+    #         timeColName = 'Gen_Ago'
+    #     # count backward
+    #     infoTable = _count_time_backward(infoTable, timeColName, t0)
+    # else:
+    #     assert 'Gen' in infoTable.columns or 'Time' in infoTable.columns, \
+    #         f'Column for sampling time unspecified. Current column names: {infoTable.columns}, gen_time={gen_time}.'
+    #     if 'Gen' in infoTable.columns and 'Time' not in infoTable.columns:
+    #         timeColName = 'Gen'
+    #     elif 'Time' in infoTable.columns and 'Gen' not in infoTable.columns:
+    #         if gen_time == 1:
+    #             print('Generation time not specified. Assume values under \"Time\" column are numbers of generations.')
+    #         timeColName = 'Time'
+    #     else:  # if both are in the table
+    #         print('Both\"Time\" and \"Gen\" exist in table. Only reading numbers in \"Gen\" column.')
+    #         # shall we check whether time/gen_time == gen? <--- maybe not, in case gen_time changes over time
+    #         timeColName = 'Gen'
+    #     # count forward
+    #     infoTable = _count_time_forward(infoTable, timeColName, t0)
 
     # now check whether force_f0 is needed.
     if np.any(np.array(infoTable["Gen"]) < 0):
@@ -376,9 +357,9 @@ def lik_args_parser(parser):
     vcfs.add_argument('--force_hap', dest='forced_haps', default='none',
                       # type=lambda x: x in {'all', 'none'} or len(IDs_regex.findall(x)) > 0,
                       help='Comma-separated string or a plain-text file that lists IDs (matching VCF column names) to be considered as haploids even though some may present diploid genotype calls. If \"all\", all samples will be considered as haploids, whose genotypes will be counted as matching haplotype (i.e. half the alleles). Force quit if any specified individual has heterozygote variant or any unmentioned diploid-formatted samples lack heterozygote variant calls. Default is \"none\".')
-    vcfs.add_argument('--force_dip', dest='forced_dips', default='none',
+    vcfs.add_argument('--force_dip', dest='forced_dips', default='all',
                       # type=lambda x: x in {'all', 'none'} or len(IDs_regex.findall(x)) > 0,
-                      help='Comma-separated string or a plain-text file that lists samples IDs (separated by comma) to be considered as diploids even though some may have loci with only haplotype calls. If \"all\", all samples will be considered as diploids, whose haploid GTs will be counted as matching homozygote diploid GTs (i.e. double-count the allele). Default is \"none\".')
+                      help='Comma-separated string or a plain-text file that lists samples IDs (separated by comma) to be considered as diploids even though some may have loci with only haplotype calls. If \"all\", all samples will be considered as diploids, whose haploid GTs will be counted as matching homozygote diploid GTs (i.e. double-count the allele). Default is \"hybrid\".')
 
     parsedInputs = parser.add_argument_group('For parsed allele counts (choose one)')
     sampTimeArgs = parsedInputs.add_mutually_exclusive_group(required=(('-i' in sys.argv) or ('--input' in sys.argv)))
@@ -602,7 +583,6 @@ def main(DL_args=None):
 
             # parse inds
             if args.ind_subset is not None:
-                # or args.snp_subset is not None:
                 ind_list = parse_ind_arg(args.ind_subset, "inds")
                 notes += f'## {len(ind_list)} samples from `--inds`\n'
             else:
@@ -645,77 +625,30 @@ def main(DL_args=None):
             assert (len(sampleTimes) - 1) == len(sampleIDPools), print(sampleTimes, sampleIDPools)
             # print(f'\tTaking samples at {len(sampleTimes[1:])} time points: {", ".join(map(str, sampleTimes[1:]))}.')
 
-            # now check ploidy
-            ## read all GTs as-is unless flags specify
-            all_IDs = {ID for pool in sampleIDPools for ID in pool}
-            if args.forced_haps != 'none' and args.forced_haps != "all":
-                hap_IDs = parse_ind_arg(args.forced_haps)
-                if len(hap_IDs) == 0:
-                    print('Invalid input for `--force_hap`:', args.forced_haps)
-                else:
-                    hap_IDs = set(hap_IDs)
-                    print(
-                        f'{len(hap_IDs)} samples will be deliberately counted as haploids: {", ".join(list(hap_IDs))}')
-            elif args.forced_haps == "all":
-                hap_IDs = all_IDs
-                print(f'All samples will be deliberately counted as haploids.')
-            else:
-                hap_IDs = {}
-
-            if args.forced_dips != "none" and args.forced_dips != "all":
-                dip_IDs = parse_ind_arg(args.forced_dips)
-                if len(dip_IDs) == 0:
-                    print('Invalid input for `--force_dip`:', args.forced_dips)
-                else:
-                    dip_IDs = set(dip_IDs)
-                    print(
-                        f'{len(dip_IDs)} samples will be deliberately counted as diploids: {", ".join(list(dip_IDs))}')
-            elif args.forced_dips == "all":
-                dip_IDs = all_IDs
-                print(f'All samples will be deliberately counted as diploids.')
-            else:
-                dip_IDs = {}
-
-            # sanity check
-            if len(hap_IDs) > 0 and len(dip_IDs) > 0:
-                assert not hap_IDs.isdisjoint(
-                    dip_IDs), f'Sample(s) {hap_IDs.intersection(dip_IDs)} cannot be forced to be diploid and haploid at the same time.'
-            # all IDs should be subset of all_IDs
-            # print(hap_IDs, dip_IDs)
-            assert set(hap_IDs).issubset(all_IDs) and set(dip_IDs).issubset(
-                all_IDs), f'Sample IDs specified in `--force_hap` and `--force_dip` must already be included in the VCF. {hap_IDs - all_IDs} {dip_IDs - all_IDs} are not included.'
-
             # parse vcf
             print(f'Loading variant counts from {args.vcfFile}...')
             # the `trimmedSampleTimes` here already have 0 added too
-            locus_names, samples, sampleSizes, trimmedSampleTimes, het_flags, trimmedSampleIndexPools = parse_vcf_input(
+            locus_names, samples, sampleSizes, keptSampleTimes = parse_vcf_input(
                 args.vcfFile,
                 sampleIDPools,
-                sampleTimes=sampleTimes,
+                sampleTimes=sampleTimes,  # <-- no need for this; can just replace by indice
+                inds=ind_list,
+                forced_haps=args.forced_haps,
+                forced_dips=args.forced_dips,
                 snps=snp_list,
-                forced_haps=hap_IDs,
-                forced_dips=dip_IDs,
                 minMAF=args.MAF)
-            if len(trimmedSampleTimes) != len(sampleTimes):
-                assert len(trimmedSampleTimes) < len(
-                    sampleTimes), f'Before SNP-based trimming, sample times: {sampleTimes}\nAfter: {trimmedSampleTimes}'
+
+            if len(keptSampleTimes) != len(sampleTimes):
+                assert len(keptSampleTimes) < len(sampleTimes), \
+                    f'Before SNP-based trimming, sample times: {sampleTimes}\n' \
+                    f'After: {keptSampleTimes}'
                 # sanity check
-                trimmed = []
-                kept = 0
-                for k, time_point in enumerate(sampleTimes[1:]):
-                    if time_point not in trimmedSampleTimes:
-                        trimmed.append(k)
-                    else:
-                        kept += 1
-                assert (
-                                   len(trimmed) + kept) == num_time_points, f'len(trimmed)={len(trimmed)}, kept={kept}, num_time_points={num_time_points}'
                 # matrix shape should match too
-                assert samples.shape[1] == len(trimmedSampleTimes) - 1
+                assert samples.shape[1] == len(keptSampleTimes) - 1
                 assert samples.shape == sampleSizes.shape
                 # update other related variables
-                num_time_points = len(trimmedSampleTimes) - 1
-                sampleTimes = trimmedSampleTimes
-                # sampleIDPools = [header[idx] for pool in trimmedSampleIndexPools for idx in pool] # <-- no use
+                num_time_points = len(keptSampleTimes) - 1
+                sampleTimes = keptSampleTimes
 
         # decide emission type & prep relevant args
         samples_int = np.allclose(np.array(samples, dtype=float) - np.array(samples, dtype=int), 0)

@@ -1,0 +1,6 @@
+# ## DiploLocus-likelihood. u01 = None, u10 = None, Ne = None
+# ## Pre-computed log-likelihoods from Ex1_ASIP-init_50x50linGrid5e-2_LLmatrices.table
+# ## Recorded 2 loci, under 2601 pairs of selection coefficients.
+# ID	ongrid_s1hat	ongrid_s2hat	ongrid_maxLogLikelihood	MLR
+ASIP	0.011999999999999997	0.0020000000000000018	-15.234756921722347	9.80607363724858
+MC1R	0.013999999999999999	0.0020000000000000018	-13.57588302706472	9.903651564517943

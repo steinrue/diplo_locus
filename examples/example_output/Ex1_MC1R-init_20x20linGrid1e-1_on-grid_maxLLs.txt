@@ -1,0 +1,9 @@
+# ## DiploLocus-likelihood. u01 = 1e-06, u10 = 1e-06, Ne = 2500.0
+# ## Analyze 441 pairs of sel. coef.
+# ## allele counts from Ex1_HorseLoci_count.txt
+# ## Computing likelihoods for 2 loci at 4 time points: 660.0, 840.0, 1180.0, 1300.0
+# ## 	Max sample sizes at each time: 20, 20, 36, 38
+# ## Assume constant selection pressure throughout the duration considered
+# ID	ongrid_s1hat	ongrid_s2hat	ongrid_maxLogLikelihood	MLR
+ASIP	0.1	0.009999999999999995	-11.825226549809992	26.270614220764774
+MC1R	0.01999999999999999	0.0	-13.319967236195398	12.315315098696342

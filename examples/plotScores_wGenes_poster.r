@@ -54,6 +54,7 @@ getGeneBed <- function(chr, left, right, refSeqFile="hg19_ncbiRefSeq-All_2023May
     colnames(genes) <- c('bin', "name", "chrom", "strand", "txStart", "txEnd", "cdsStart", "cdsEnd", "exonCount", "exonStarts", "exonEnds", "score", "name2", "cdsStartStat", "cdsEndStat", "exonFrames" )
     genes = genes[,.(bin, Chr=chrom, start=txStart, end=txEnd, strand, cdStart=cdsStart, cdEnd=cdsEnd,
                       ID=name, name=name2, exonCount, exonStarts, exonEnds)]
+    genes <- genes[Chr == paste("chr", chr, sep="")]
     # starts and ends are in order (starts always < ends) regardless of strands
     print(dim(genes))
     return(genes[ start <= right & end >= left])
@@ -176,7 +177,7 @@ plotPeak <- function(ch, inputname, left, right, outputname, statname){
                                        )
   }else if (statname == "pval"){
     p1 <- plotManChrs(peak[,.(Chr, physPos, stat=-log10(chi2_p), colorscale=s2hat)],
-                      left=left, right=right, statname=TeX(r"($-log_{10}p in $\chi^2(1)$$)"),
+                      left=left, right=right, statname=TeX(r"($-log_{10}p_{\chi^2(1)}$)"),
                       colorstat=TeX(r"($\hat{s}_{AA}$)") )
     # need to rotate y axis label
     p1 <- p1 + theme_minimal() + theme(axis.title.y=element_text(angle=0))

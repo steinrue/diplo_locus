@@ -914,6 +914,7 @@ class SelHmm:
         assert (len(samplesSizes.shape) == 2)
         assert (samplesSizes.shape[1] ==  samples.shape[1])
         assert (len(times)-1 == samplesSizes.shape[1])
+        assert (numpy.diff(times).min() >= 0), 'specified times cannot be decreasing'
         assert (self.emissionObject.checkSamples (samplesSizes, samples))
 
         numReplicates = samplesSizes.shape[0]

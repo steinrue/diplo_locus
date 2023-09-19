@@ -1,6 +1,7 @@
 import numpy
 import pandas as pd
-import re, os, gzip, sys
+pd.set_option('display.max_colwidth', 255)
+import re, os, sys
 import scipy.interpolate
 import scipy.optimize
 
@@ -43,7 +44,7 @@ def _get_geom_grid(left: float, right: float, grid_num, Ne):
 
 
 # infile header needs to be fixed
-def parse_allele_counts(infile: str, snp_list=None, minMAF: float=0.):
+def parse_allele_counts(infile: str, snp_list=None, minMAF: float = 0.):
     """Parse the allele count file. Must have header.
     Return `numpy.array(locus_names)`, `numpy.array(samples)`, `numpy.array(sampleSizes)`
     """
@@ -92,8 +93,10 @@ def parse_allele_counts(infile: str, snp_list=None, minMAF: float=0.):
         print(e)
         print(f'Cannot parse column names: d_cols={d_cols}; n_cols={n_cols}')
         sys.exit(1)
-    assert numpy.all(numpy.array(d_col_num) == numpy.array(n_col_num)), f'Columns for samples and sample sizes must be ordered the same.'
-    assert numpy.all(numpy.diff(d_col_num) >= 0) or numpy.all(numpy.diff(d_col_num) <= 0), f'Please make sure the sample pools are ordered.'
+    assert numpy.all(numpy.array(d_col_num) == numpy.array(n_col_num)), \
+        f'Columns for samples and sample sizes must be ordered the same.'
+    assert numpy.all(numpy.diff(d_col_num) >= 0) or numpy.all(numpy.diff(d_col_num) <= 0), \
+        f'Please make sure the sample pools are ordered.'
     # assemble
     samples = numpy.array(parsed.loc[:, d_cols])
     sampleSizes = numpy.array(parsed.loc[:, n_cols])
@@ -101,8 +104,8 @@ def parse_allele_counts(infile: str, snp_list=None, minMAF: float=0.):
     # down-sample by pooled MAF
     ## remove ones without observations first: (mostly to avoid zero division
     observed = (sampleSizes.sum(axis=1) > 0)
-    samples = samples[observed,:]
-    sampleSizes = sampleSizes[observed,:]
+    samples = samples[observed, :]
+    sampleSizes = sampleSizes[observed, :]
     locus_names = locus_names[observed]
     ## divide
     freqs = samples.sum(axis=1) / sampleSizes.sum(axis=1)
@@ -111,29 +114,11 @@ def parse_allele_counts(infile: str, snp_list=None, minMAF: float=0.):
     # filter
     passed_rows = (freqs > minMAF)
     # down sample
-    samples = samples[passed_rows,:]
-    sampleSizes = sampleSizes[passed_rows,:]
+    samples = samples[passed_rows, :]
+    sampleSizes = sampleSizes[passed_rows, :]
     locus_names = locus_names[passed_rows]
 
     return locus_names, samples, sampleSizes
-
-
-def parse_ind_file(inds: str, type: str = "inds"):
-    # the same function work for both inds and SNP IDs
-    # check if it's a file
-    if os.path.isfile(inds):
-        print(f'Reading select {type} from {inds}')
-        ## read in the file
-        with open(inds, "r") as ind_file:
-            ind_list = ind_file.read()
-        ind_file.close()
-        ## recognize separators: comma, tab, or newline
-        ind_list = re.split(r'[,\r\n\t]{1}', ind_list)
-        print(f'{len(ind_list)} {type} in total.')
-        return ind_list
-    else:
-        print('Please provide a valid file name for the list of sample IDs.')
-        return False
 
 
 def parse_ind_arg(inds: str, type: str = "inds"):
@@ -153,6 +138,8 @@ def parse_ind_arg(inds: str, type: str = "inds"):
         except Exception as e:
             print(e)
             return False
+    ## remove empty lines
+    ind_list = [ind for ind in ind_list if len(ind.strip()) > 0]
     print(f'{len(ind_list)} {type} in total.')
     return ind_list
 
@@ -176,7 +163,9 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
     :param force_t0: bool, decide whether to discard data (if any) collected before the `t0` provided. Default is False.
     :param inds: None or list, list of sample IDs (subset of all IDs in the ID column) to consider;
             if `None`, then all samples will be considered.
-    :return:
+    :return: sampleTimes
+    :return: samplePools
+
     """
     infoTable = pd.read_csv(infofile, sep="\t")  # , comment="#", header=0
     assert ID_colname in infoTable.columns, ValueError(f"VCF Info file must have a column named \"{ID_colname}\".")
@@ -194,7 +183,7 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
         # forward time:
         print(f'Counting time from past to present, extracting info from \"{timeCol}\" column.')
         ## check for missing value
-        if np.any(infotable[timeCol].isnull()):
+        if numpy.any(infotable[timeCol].isnull()):
             infotable = infotable[~infotable[timeCol].isnull()]
         if t0 is None:
             t0 = min(infoTable['Gen'])
@@ -203,11 +192,11 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
         elif not force_t0:
             assert t0 <= min(infotable[
                                  "Gen"]), 'Please make sure selection start time `t0` is of the same unit as provided under the \"Gen\" column.\nIf selection is set to start after the oldest samples are collected, please use `--force_t0` to allow omitting data preceding the selection onset.'
-        # infoTable['Gen'] = np.array(np.array((infoTable['Gen']) - t0), dtype=int)
+        # infoTable['Gen'] = numpy.array(numpy.array((infoTable['Gen']) - t0), dtype=int)
         # convert to generation
         infotable['Gen'] = (infotable[timeCol] - t0) / gen_time
         # just in case
-        if np.any(infotable["Gen"].isnull()):
+        if numpy.any(infotable["Gen"].isnull()):
             infotable = infotable[~infotable["Gen"].isnull()]
         infotable['Gen'] = infotable['Gen'].round().astype(int)
         # done processing
@@ -217,7 +206,7 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
         # backward time
         print(f'Counting time from present to past, extracting info from \"{timeCol}\" column.')
         ## check for missing value
-        if np.any(infotable[timeCol].isnull()):
+        if numpy.any(infotable[timeCol].isnull()):
             infotable = infotable[~infotable[timeCol].isnull()]
         # t0 needs to be the same unit too
         if t0 is None:
@@ -228,7 +217,7 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
         # convert to the number of generations
         infotable['Gen'] = (t0 - infotable[timeCol]) / gen_time
         # just in case
-        if np.any(infotable["Gen"].isnull()):
+        if numpy.any(infotable["Gen"].isnull()):
             infotable = infotable[~infotable["Gen"].isnull()]
         # print(f't0={t0}, {infoTable["Time_Ago"].describe()}, gen_time={gen_time}') #\n{list(infoTable["Time_Ago"])}
         # algorithm only accept integer generations for now
@@ -236,6 +225,7 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
         # done processing
         return infotable
 
+    ago_regex = re.compile(r'([A|a][G|g][O|o])')
     if time_colname is not None:
         find_ago = ago_regex.findall(time_colname)
 
@@ -243,40 +233,42 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
             infoTable = _count_time_forward(infoTable, time_colname, t0)
         else:
             if len(find_ago) > 1:
-                if time_colname.endswith('_Ago'): # <-- remove the tag previously added
+                if time_colname.endswith('_Ago'):  # <-- remove the tag previously added
                     time_colname = time_colname[:-4]
-            else: # the OG name could be without "ago" too
+            else:  # the OG name could be without "ago" too
                 assert len(find_ago) == 1
                 if time_colname not in infoTable.columns:
                     time_colname = time_colname[:-4]
-                assert time_colname in infoTable.columns, ValueError(f'Column \"{time_colname}\" missing in the info table.')
+                assert time_colname in infoTable.columns, \
+                    f'Column \"{time_colname}\" missing in the info table.'
             infoTable = _count_time_backward(infoTable, time_colname, t0)
     # if any column has "ago" in it
-    elif np.any(np.array([ago_regex.search(name) for name in infoTable.columns], dtype=bool)):
+    elif numpy.any(numpy.array([ago_regex.search(name) for name in infoTable.columns], dtype=bool)):
         assert 'Gen_Ago' in infoTable.columns or 'Time_Ago' in infoTable.columns, \
-                f'Column for sampling time unspecified. Current column names: {infoTable.columns}, gen_time={gen_time}.'
+            f'Column for sampling time unspecified. Current column names: {infoTable.columns}, gen_time={gen_time}.'
         if 'Gen_Ago' in infoTable.columns and 'Time_Ago' not in infoTable.columns:
             timeColName = 'Gen_Ago'
         elif 'Time_Ago' in infoTable.columns and 'Gen_Ago' not in infoTable.columns:
             if gen_time == 1:
                 print('Generation time not specified. Assume values under \"Time\" column are numbers of generations.')
             timeColName = 'Time_Ago'
-        else: # if both are in the table
-            print('Both\"Time_Ago\" and \"Gen_Ago\" exist in table. Only reading numbers in \"Gen\" column.', infoTable.columns)
+        else:  # if both are in the table
+            print('Both\"Time_Ago\" and \"Gen_Ago\" exist in table. Only reading numbers in \"Gen\" column.',
+                  infoTable.columns)
             # shall we check whether time/gen_time == gen? <--- maybe not, in case gen_time changes over time
             timeColName = 'Gen_Ago'
         # count backward
         infoTable = _count_time_backward(infoTable, timeColName, t0)
     else:
         assert 'Gen' in infoTable.columns or 'Time' in infoTable.columns, \
-                f'Column for sampling time unspecified. Current column names: {infoTable.columns}, gen_time={gen_time}.'
+            f'Column for sampling time unspecified. Current column names: {infoTable.columns}, gen_time={gen_time}.'
         if 'Gen' in infoTable.columns and 'Time' not in infoTable.columns:
             timeColName = 'Gen'
         elif 'Time' in infoTable.columns and 'Gen' not in infoTable.columns:
             if gen_time == 1:
                 print('Generation time not specified. Assume values under \"Time\" column are numbers of generations.')
             timeColName = 'Time'
-        else: # if both are in the table
+        else:  # if both are in the table
             print('Both\"Time\" and \"Gen\" exist in table. Only reading numbers in \"Gen\" column.')
             # shall we check whether time/gen_time == gen? <--- maybe not, in case gen_time changes over time
             timeColName = 'Gen'
@@ -284,7 +276,7 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
         infoTable = _count_time_forward(infoTable, timeColName, t0)
 
     # now check whether force_f0 is needed.
-    if np.any(np.array(infoTable["Gen"]) < 0):
+    if numpy.any(numpy.array(infoTable["Gen"]) < 0):
         if force_t0:
             print(f'Ignoring data sampled before t0={t0}.')
             infoTable = infoTable[infoTable['Gen'] >= 0]
@@ -298,128 +290,38 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
     Pools = list(infoTable.groupby(by="Gen")[ID_colname])
     # pandas algorithm ensures that time_points are sorted
     time_points, sample_pools = map(list, zip(*Pools))
-    sampleTimes = np.array([0] + time_points)
+    sampleTimes = numpy.array([0] + time_points)
     samplePools = [list(pool) for pool in sample_pools]
     return sampleTimes, samplePools
 
 
-def _get_GT_index(line):
-    # get GT index
-    GT_index = line[8].split(":").index("GT")
-    return GT_index
+## looks like I need to write a function for flatten
+def _flatten_list_of_lists(manyPools: list):
+    flatPool = []
+    for pool in manyPools:
+        flatPool.extend(pool)
+    return flatPool
 
 
-def _get_ids_from_vcf_header(header, inds_list):
-    # header = header.strip().split('\t') <-- already prepped before passing here
-    # 0CHROM	1POS	2ID	3REF	4ALT	5QUAL	6FILTER	7INFO	8FORMAT	9:<individuals>
-    # get ID list
-    ## samples already stratified by time; all ids in the list are in the same pool. use set() to remove dups
-    try:
-        ID_list = set(map(header.index, inds_list))
-    except ValueError: # some ids are not in the header
-        # there's a certain individual not in list
-        ID_list = [header.index(ind) for ind in inds_list if ind in header]
-    # just in case
-    if len(ID_list) != len(inds_list):
-        assert len(ID_list) < len(inds_list), f'len(ID_list)={len(ID_list)}, len(inds_list)={len(inds_list)}.'
-        print(f'{len(ID_list)} out of {len(inds_list)} in the inds_list exist/are included in the VCF file.')
-    if len(ID_list) > 0:
-        # sanity check (bc it's a vcf file
-        assert min(ID_list) >= 9, f'ID_list={ID_list}, inds_list={inds_list}'
-
-    return ID_list
+def parse_forced_ploidy_arg(forced_ones, all_samples, Type):
+    # start with sanity check
+    assert isinstance(forced_ones, str), \
+        f'Unrecognized {Type} argument value type {type(forced_ones)}: {forced_ones}'
+    # now they're all strings
+    if forced_ones == "all":
+        return set(all_samples)
+    elif forced_ones == "none":
+        return set([])
+    else:
+        return set(parse_ind_arg(forced_ones, Type))
 
 
-# only consider bi-allelic locus here:
-allele_regex = re.compile(r'[01]')
-missing_regex = re.compile(r'(\.)')
-GTseats_regex = re.compile(r'[01\.]')
+import allel
 
 
-def _GT_to_counts(vcfline, indexPools, het_flags: dict, force_hap_idx: list or set, force_dip_idx: list or set):
-    """Turn a row in VCF file into counts of alleles among samples of the given col. indices"""
-    GT_id = _get_GT_index(vcfline)
-
-    # for each sample/col
-    def _parseGT(idx):
-        GT = vcfline[idx].split(":")[GT_id]
-        alleles = allele_regex.findall(GT)
-        assert len(set(alleles)) in {0, 1, 2}, f"Unconventional GT format: {GT}, alleles: {alleles}."
-        # count all the "."
-        missing = missing_regex.findall(GT)
-        allSeats = GTseats_regex.findall(GT)
-        # sanity check (make sure we counted all
-        assert len(allSeats) == len(missing) + len(alleles), f"Unconventional GT format: {GT}, alleles: {alleles}."
-
-        # convert GTs listed in `force_hap_idx` to haps
-        if idx in force_hap_idx:
-            if het_flags[idx]:
-                print(f"Cannot force convert genotype {GT} to haplotype."
-                    f" Variant{vcfline[2]}, column {idx + 1} GT: {GT}, len(alleles)={len(alleles)}.")
-                het_flags[idx] = True
-                # sys.exit(1)
-                # ignore this GT
-                xi, ni = 0, 0
-            else:
-                if len(alleles) == 0:
-                    xi, ni = 0, 0
-                else:
-                    assert len(set(alleles)) == 1, f" Variant{vcfline[2]}, column {idx + 1} GT: {GT}, len(alleles)={len(alleles)}."
-                    allele = int(alleles[0])
-                    xi, ni = allele, 1
-        # double the HTs listed in `force_hap_idx` to dips (but report dips as-is)
-        elif idx in force_dip_idx:
-            # if both alleles have calls
-            if len(alleles) == 2:
-                # just checking for hets?
-                het_flags[idx] |= (alleles[0] != alleles[1])
-                alleles = list(map(int, alleles))
-                xi, ni = sum(alleles), 2
-            # if it shows up as ./., [01]/., or [01]
-            ## this is true haplotype [01]; double the counts
-            elif len(alleles) == 1 and len(GT) == 1:
-                allele = int(alleles[0])
-                assert allele in {0, 1}, f'allele = {allele}; GT[idx={idx}]={GT}'
-                xi, ni = 2*allele, 2
-            ## this is [01]/.
-            elif len(alleles) == 1 and len(GT) > 1:
-                xi, ni = int(alleles[0]), 1
-                try:
-                    assert "." in GT, f'Unconventional genotype {GT}; ' \
-                                      f'will not be converted as double-counted haplotype.'
-                except Exception as e:
-                    print(e)
-                    print(f'will count sample[{idx}]\'s GT \"{GT}\" as xi={xi}, ni={ni}')
-            # here len(alleles) must be 0, either ./. or .
-            else:
-                assert len(alleles) == 0
-                xi, ni = 0, 0
-        else:
-            # check for hets
-            check_het = (len(alleles) > 1 and alleles[0] != alleles[1])
-            het_flags[idx] |= check_het
-            # adding stuff up
-            alleles = list(map(int, alleles))
-            xi, ni = sum(alleles), len(alleles)
-
-        return xi, ni
-
-    # for each pool
-    def _poolGTs(idx_pool):
-        # n, x are tuples of alleles for each sample
-        x, n = zip(*map(_parseGT, idx_pool))
-        return sum(x), sum(n)
-
-    # henceforth:
-    samples, sampleSizes = zip(*map(_poolGTs, indexPools))
-    samples = numpy.array(list(samples))
-    sampleSizes = numpy.array(list(sampleSizes))
-
-    return samples, sampleSizes, het_flags
-
-
-def parse_vcf_input(vcffile: str, samplePools: list, sampleTimes=None, snps=None, inds=None,
-                    forced_haps: list or set=[], forced_dips: list or set=[], minMAF: float=0.):
+def parse_vcf_input(vcffile: str, samplePools: list, sampleTimes=None, inds=None,
+                    forced_haps: list or str = '', forced_dips: list or str = '',
+                    snps=None, pos_range: str = '', minMAF: float = 0.):
     """Read in vcf-formatted input and generate `samples` & `sampleSizes` matrices
        for downstream LL computation. Return numpy.arrays of `locus_name`, `samples`,
        and `sampleSizes'.
@@ -430,106 +332,217 @@ def parse_vcf_input(vcffile: str, samplePools: list, sampleTimes=None, snps=None
             pool at the i-th ancient sampling time point.
     :param snps: list of variant IDs (as a subset of all variants in the vcf) to consider.
             If not provided, all loci in the vcf will be included. Default is None.
+    :param inds: list of sample IDs (as a subset of all sample IDs [as column names] in the vcf)
+            to consider. If not provided, all loci in the vcf will be included. Default is None.
     :param sampleTimes: list of time points for each batch of samples
-    :param forced_haps: list of sample IDs, as shown in VCF columns, to be counted as haploids
-    :param forced_dips: list of sample IDs, as shown in VCF columns, to be double-counted as diploids if a GT is presented as haploid.
+    :param forced_haps: list of sample IDs, as shown in VCF column names, to be counted as haploids
+    :param forced_dips: list of sample IDs, as shown in VCF column names, to be double-counted as diploids if a GT is presented as haploid.
     :param minMAF: float, minimum threshold (non-inclusive) for minor allele frequencies in the pooled samples.
     -----------------------------
     :return: numpy.array(locus_names), numpy.array(samples), numpy.array(sampleSizes), numpy.array(sampleTimes), sampleIDpools
     """
     # setting up
-    twohash_regex = re.compile(r'^##')
-    onehash_regex = re.compile(r'^#[^#](.*)')
     SNP = {'A', 'T', 'C', 'G'}
 
-    # reading file
-    if vcffile.endswith('.vcf.gz'):
-        vcf = gzip.open(vcffile, 'rt')
+    # sanity check
+    if sampleTimes is not None:
+        assert len(sampleTimes) == (len(samplePools) + 1), \
+            f'len(samplePools)={len(samplePools)}; len(sampleTimes)={len(sampleTimes)}'
+    timePool_indice = range(1, len(samplePools) + 1)
+    # if position range is defined
+    if pos_range == '':
+        pos_arg = None
     else:
-        assert vcffile.endswith('vcf')
-        vcf = open(vcffile, 'r')
-    # l = vcf.readline()
-    locus_names = []
+        # can I just leave the parsing to `read_vcf()`?
+        parts = re.split(r'\W+', pos_range)
+        if len(parts) == 1:  # then this is chromosome name
+            pos_arg = parts[0]
+        elif len(parts) == 3:
+            chrom = parts[0]
+            from_pos, to_pos = map(float, parts[1:])
+            pos_arg = f'{chrom}:{int(from_pos):d}-{int(to_pos):d}'
+            print(pos_arg)
+        else:  # let's just leave it like that. I doubt read_vcf takes open ranges
+            raise ValueError(f'Cannot parse position description {pos_range}')
+
+    # reading file
+    if inds is not None and pos_arg != '':
+        vcf = allel.read_vcf(vcffile, samples=inds, region=pos_arg)
+    elif inds is not None:
+        vcf = allel.read_vcf(vcffile, samples=inds)
+    elif pos_arg != '':
+        vcf = allel.read_vcf(vcffile, region=pos_arg)
+        if vcf is None:
+            raise ValueError(f'Please make sure chromosome name in pos_arg matches the vcf.')
+    else:
+        vcf = allel.read_vcf(vcffile)
+
+    # locus_names = vcf['variants/ID']
+    chrom, positions, snp_IDs = vcf['variants/CHROM'], vcf['variants/POS'], vcf['variants/ID']
+    # locus_names = numpy.apply_along_axis("_".join, 1, list(zip(chrom, positions.astype(str), snp_IDs)))
+    locus_names = ["_".join([str(chrom[i]), str(positions[i]), snp_IDs[i]]) for i in range(len(snp_IDs))]
+    locus_names = numpy.array(locus_names)
+    print(f'{len(locus_names)} snps read from VCF')
+    GTs = vcf['calldata/GT']
+    # downsample if specified
+    if snps is not None:
+        # snps_idx = numpy.where(locus_names in snps)[0]
+        pick_snps = numpy.vectorize(lambda x: x in set(snps))
+        # snps_included_bools = snp_IDs in snps
+        snps_included_bools = pick_snps(snp_IDs)
+        print(f'{sum(snps_included_bools)} snps out of {len(snp_IDs)} included after `numpy.vectorize(lambda x: x in set(snps))`.\n')
+    else:  # <-- if None, then take all
+        snps_included_bools = numpy.ones(len(snp_IDs)).astype(bool)
+    # force bi-allelic
+    # biallelic_idx = numpy.where((vcf['variants/ALT'] in SNP) & (vcf['variants/ALT'] in SNP))[0]
+    is_SNP = lambda x: x in SNP
+    # is_biallelic_bools = ((vcf['variants/ALT'] in SNP) & (vcf['variants/REF'] in SNP))
+    is_biallelic_bools = numpy.array(list(map(is_SNP, vcf['variants/ALT'][:, 0])), dtype=bool) & \
+                         numpy.all(vcf['variants/ALT'][:, 1:] == '', axis=1) & \
+                         numpy.array(list(map(is_SNP, vcf['variants/REF'])), dtype=bool)
+    print(f'{sum(is_biallelic_bools)} out of {len(snp_IDs)} snps are bi-allelic.\n')
+
+    # update
+    locus_names = locus_names[(snps_included_bools & is_biallelic_bools)]
+    print(f'{locus_names.shape} snps after filtering for biallelic + overlaps between .snps & .vcf ')
+    GTs = GTs[(snps_included_bools & is_biallelic_bools), :, :]
+
+    ## sanity check: all GT calls are 1, 0, or -1
+    all_GT_types = set(GTs.flatten())
+    assert all_GT_types.issubset({0, 1, -1}), f'all_GT_types = {all_GT_types}'
+
+    # now filter the samples if needed
+    vcf_sample_pool = vcf['samples']
+    ## get indices for each time pool
+    ## samples in this pool are the intersection between vcf pool and info pool
+    ### TODO: maybe use np.where instead of list.index to make it faster? <-- after making sure all elements exist
+    sampleIndexPools = [[list(vcf_sample_pool).index(sampID) for sampID in thisSamplePool if sampID in vcf_sample_pool]
+                        for thisSamplePool in samplePools]
+    ### these are the indice in OG vcf
+    all_sample_idx = numpy.sort(_flatten_list_of_lists(sampleIndexPools)).astype(int)
+    all_samples = _flatten_list_of_lists(samplePools)
+    ### another sanity check
+    assert len(all_sample_idx) <= len(all_samples), \
+        f'len(all_sample_idx)={len(all_sample_idx)}; len(samplePools)={len(all_samples)}'
+
+    # now parse forced_hap/dips
+    ## these are sets of IDs
+    forced_hap_IDs = parse_forced_ploidy_arg(forced_haps, all_samples, "--forced_hap")
+    forced_dip_IDs = parse_forced_ploidy_arg(forced_dips, all_samples, "--forced_dip")
+    all_forced_IDs = forced_hap_IDs.union(forced_dip_IDs)
+
+    # reduce gt matrix & sample IDs to this subset
+    GTs = GTs[:, all_sample_idx, :]
+    all_sampleIDs = list(numpy.array(vcf_sample_pool)[all_sample_idx])
+    # check for ploidy
+    # hapSampleIdx = numpy.where( GTs[:,:,1] == -1, axis=0 )[0]
+    hapSample_bools = numpy.all(GTs[:, :, 1] == -1, axis=0)  # <-- if True, then haploid
+    hapSample_IDs = numpy.array(all_sampleIDs)[hapSample_bools]
+    dipSample_IDs = numpy.array(all_sampleIDs)[~hapSample_bools]
+
+    ## for each individual at each site, get the effective sample size,
+    ## that is, the number of alleles that are not missing (either reference or alternative)
+    n_alleleCalls = numpy.sum(GTs != -1, axis=2)  # <-- of shape (n_var, n_samp)
+    assert (n_alleleCalls.min() >= 0) and (n_alleleCalls.max() <= 2), \
+        f'unique values in n_alleleCalls={set(n_alleleCalls.flatten())}'
+    # and the number of alternative alleles, that is, how many 1's
+    n_alt = numpy.sum(GTs == 1, axis=2)
+    assert (n_alt.min() >= 0) and (n_alt.max() <= 2), \
+        f'unique values in n_alt={set(n_alt.flatten())}'
+    assert numpy.all(n_alleleCalls >= n_alt)
+
+    # find out which individuals have hets
+    hasHet_bools = numpy.any(n_alt == 1, axis=0)
+    # but the ones that are haploid to begin with don't count
+    noHetDips_bools = ~hapSample_bools & ~hasHet_bools
+    # print(len(noHetDips_bools), numpy.sum(noHetDips_bools))
+
+    if noHetDips_bools.sum() > 0:
+        noHetDips_IDs = numpy.array(all_sampleIDs)[noHetDips_bools]
+        # if no instruction is given about the het-less samples, raise error
+        if not set(noHetDips_IDs).issubset(all_forced_IDs):
+            raise ValueError(f'Found diploid samples without heterozygotic sites:\n'
+                             f'{set(noHetDips_IDs) - all_forced_IDs}\n'
+                             f'\tTo continue after/without converting them to haploids, use '
+                             f'\t`--force_hap/dip <comma-separated-IDs>` in the command.')
+        else:
+            noHetDips_asHaps = set(noHetDips_IDs).intersection(forced_hap_IDs)
+            noHetDips_asDips = set(noHetDips_IDs).intersection(forced_dip_IDs)
+            # get their indice
+            noHetDips_asHaps_idx = [all_sampleIDs.index(ID) for ID in list(noHetDips_asHaps)]
+            # noHetDips_asDips_idx = [all_sampleIDs.index(ID) for ID in list(noHetDips_asDips)] <-- no need to do anything to their counts
+            print(f'Samples {noHetDips_asDips} will still be counted as diploids '
+                  f'despite having no heterozygote GT calls.')
+            # convert gts
+            n_alleleCalls[:, noHetDips_asHaps_idx] = n_alleleCalls[:, noHetDips_asHaps_idx] // 2
+            n_alt[:, noHetDips_asHaps_idx] = n_alt[:, noHetDips_asHaps_idx] // 2
+            # maybe there are haps that user wants to count as dips?
+            if len(set(forced_dips)) > len(noHetDips_asDips):
+                asDips = set(forced_dips) - noHetDips_asDips
+                hapsToDouble = asDips.intersection(set(hapSample_IDs))
+                if len(hapsToDouble) > 0:
+                    hapsToDouble_idx = [all_sampleIDs.index(ID) for ID in hapsToDouble]
+                    # double
+                    n_alleleCalls[:, hapsToDouble_idx] *= 2
+                    n_alt[:, hapsToDouble_idx] *= 2
+                elif len(asDips.intersection(set(all_sampleIDs))) == 0:
+                    print(f'Sample(s) {asDips} are not in `all_sampleIDs`. '
+                          f'In VCF? {asDips.issubset(set(vcf_sample_pool))}.')
+            if len(set(forced_haps)) > len(noHetDips_asHaps):
+                # maybe some will still be haps?
+                asHaps = set(forced_haps) - noHetDips_asHaps
+                # do not allow halving heterozygote GTs
+                dipsToHalve = asHaps.intersection(set(dipSample_IDs))
+                if len(dipsToHalve) > 0:
+                    # do they all have hets?
+                    dipsToHalve_idx = [all_sampleIDs.index(ID) for ID in dipsToHalve]
+                    if numpy.any((GTs[:, dipsToHalve_idx, :])[:, :, 1] == 1, axis=2):
+                        raise ValueError(f'Cannot force-halve diploid samples {dipsToHalve} '
+                                         f'because they have heterozygotes')
+                elif len(asHaps.intersection(set(all_sampleIDs))) == 0:
+                    print(f'Sample(s) {asHaps} are not in `all_sampleIDs`. '
+                          f'All in VCF? {asHaps.issubset(set(vcf_sample_pool))}.')
+
+    # get sample IDs grouped by time/batch
+    intsctSampleIDpools = [[vcf_sample_pool[idx] for idx in thisIndexPool]
+                           for thisIndexPool in sampleIndexPools]
+    # get their idx in the GT subset
+    # newSampleIdxPools = [numpy.where(thisSamplePool in all_sampleIDs)[0] <-- doesn't work
+    newSampleIdxPools = [[all_sampleIDs.index(sampID) for sampID in thisSamplePool]
+                         for thisSamplePool in intsctSampleIDpools]
+    # initiate
     samples = []
     sampleSizes = []
-    sampleIndexPools = []
-    # while l != "":
-    with vcf:
-        for l in vcf:
-            if twohash_regex.search(l):
-                continue
-            # retrieve headerline
-            elif onehash_regex.search(l):
-                header = l.strip().split("\t")
-                # samplePools is a list of lists, each includes IDs of the same time point
-                # if data only a subset of all data, some time points may have empty index lists.
-                if inds is None:
-                    sampleIndexPools = [_get_ids_from_vcf_header(header, inds_pool) for inds_pool in samplePools]
-                else:
-                    smaller_samplePools = [[ID for ID in pool if ID in inds] for pool in samplePools]
-                    sampleIndexPools = [_get_ids_from_vcf_header(header, inds_pool) for inds_pool in smaller_samplePools]
-                # list of indice (in the vcf file) for samples to be forced haps
-                force_hap_idx = _get_ids_from_vcf_header(header, forced_haps)
-                force_dip_idx = _get_ids_from_vcf_header(header, forced_dips)
-                ## indicator for existence of hets
-                het_flags = {idx: False for pools in sampleIndexPools for idx in pools}
-                # record all IDs, just in case
-                sample_IDs = {idx: header[idx] for idx in het_flags.keys()}
-                # in case some time points doesn't have any observations for certain samples
-                if [] in sampleIndexPools:
-                    assert sampleTimes is not None, 'VCF doesn\'t have all listed individuals, need `sampleTimes` arg too'
-                    # remove empty lists from OG sampleTimes
-                    trimmedTimePoints = [sampleTimes[k+1] for k, id_pool in enumerate(sampleIndexPools) if len(id_pool) > 0]
-                    trimmedIndexPools = [id_pool for id_pool in sampleIndexPools if len(id_pool) > 0]
-                    # update
-                    sampleTimes = [0] + trimmedTimePoints
-                    sampleIndexPools = trimmedIndexPools
-                    samplePools = [[header[idx] for idx in pool] for pool in sampleIndexPools]
-            else:
-                l = l.strip().split("\t")
-                assert len(l) > 9, ValueError('Please check the vcf file format.')
-                assert sampleIndexPools != [], f'samplePools = {samplePools},\nheader = {header}'
-                # pass if not in the snp list
-                if snps is not None:
-                    assert isinstance(snps, list), f'type(snps)={type(snps)}'
-                    if l[2] not in snps:
-                        continue
-                # do we condition on SNPs? <-- yes.
-                # but at least it should be bi-allelic; can check if alt has ","?
-                if l[3] in SNP and l[4] in SNP:
-                    locus_names.append('_'.join(l[:3]))
-                    # het_flags is a dict storing whether a sample has het GT calls
-                    Xs, Ns, het_flags = _GT_to_counts(l, sampleIndexPools, het_flags, force_hap_idx, force_dip_idx)
-                    samples.append(Xs)
-                    sampleSizes.append(Ns)
-        # sanity check after reading the whole VCF
-        if sum(het_flags.values()) > 0:
-            # assert these individuals are not forced to be haps
-            het_idx = {idx for idx in het_flags.keys() if het_flags[idx]}
-            assert het_idx.isdisjoint(set(force_hap_idx)), f'Sample(s) {", ".join([sample_IDs[idx] for idx in het_idx])} have heterozygote GT call(s) despite being commanded to be haploid(s).'
-        # alert user if no hets observed
+    kept_timePool_indice = []
+    # in case some time points doesn't have any observations for certain samples
+    for k, idx_pool in enumerate(newSampleIdxPools):
+        if len(idx_pool) == 0:
+            # let it pass
+            print(f'No samples at sampling time {k} in vcf')
+            continue
         else:
-            option = input("No heterozygote genotypes found in this VCF. Is this to be expected? [y|n] ")
-            if "y" in option.lower():
-                print('Program will continue...')
-            elif "n" in option.lower():
-                sys.exit()
-            else:
-                print("Invalid response.")
-                sys.exit()
-        # l = vcf.readline()
-    vcf.close()
-    # make sure to output the right format
-    samples, sampleSizes = numpy.array(samples), numpy.array(sampleSizes)
-    # sanity check to make sure the dimensions match (ie `sampleTimes` be updated if needed)
-    assert samples.shape == sampleSizes.shape, f'ValueError: samples.shape = {samples.shape} != sampleSizes.shape = {sampleSizes.shape}.'
-    assert samples.shape[0] > 0, f'VCF file is empty. samples.shape = {samples.shape}.'
+            # get counts
+            this_pool_d = n_alt[:, idx_pool].sum(axis=1)
+            this_pool_n = n_alleleCalls[:, idx_pool].sum(axis=1)
+            samples.append(this_pool_d)
+            sampleSizes.append(this_pool_n)
+            # record time
+            kept_timePool_indice.append(timePool_indice[k])
+    # print(k+1, 'batches')
+    # now transpose samples & sampleSizes
+    samples = numpy.array(samples).transpose()
+    sampleSizes = numpy.array(sampleSizes).transpose()
+
+    if sampleTimes is not None:
+        newSampleTimes = numpy.array([0] + [sampleTimes[k] for k in kept_timePool_indice])
+    else:
+        newSampleTimes = numpy.array([0] + kept_timePool_indice)
 
     # down-sample by pooled MAF
     ## remove ones without observations first: (mostly to avoid zero division
     observed = (sampleSizes.sum(axis=1) > 0)
-    samples = samples[observed,:]
-    sampleSizes = sampleSizes[observed,:]
+    samples = samples[observed, :]
+    sampleSizes = sampleSizes[observed, :]
     locus_names = numpy.array(locus_names)[observed]
     ## divide
     freqs = samples.sum(axis=1) / sampleSizes.sum(axis=1)
@@ -538,12 +551,14 @@ def parse_vcf_input(vcffile: str, samplePools: list, sampleTimes=None, snps=None
     # filter
     passed_rows = (freqs > minMAF)
     # down sample
-    samples = samples[passed_rows,:]
-    sampleSizes = sampleSizes[passed_rows,:]
+    samples = samples[passed_rows, :]
+    sampleSizes = sampleSizes[passed_rows, :]
     locus_names = locus_names[passed_rows]
-
+    # sanity check to make sure the dimensions match
+    assert samples.shape == sampleSizes.shape, f'ValueError: samples.shape = {samples.shape} != sampleSizes.shape = {sampleSizes.shape}.'
+    assert samples.shape[0] > 0, f'VCF file is empty. samples.shape = {samples.shape}.'
     # output
-    return numpy.array(locus_names), numpy.array(samples), numpy.array(sampleSizes), sampleTimes, het_flags, sampleIndexPools
+    return numpy.array(locus_names), numpy.array(samples), numpy.array(sampleSizes), newSampleTimes
 
 
 def _reformat_LL_DF_to_matrix(onGrid_LLs):
@@ -741,5 +756,3 @@ def interpolate_offGrid_max(s1_list, s2_list, s_pairs, num_pairs, LLmatrix):
         sys.exit()
 
     return maxLLs, header
-
-

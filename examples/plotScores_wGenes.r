@@ -54,6 +54,7 @@ getGeneBed <- function(chr, left, right, refSeqFile="hg19_ncbiRefSeq-All_2023May
     colnames(genes) <- c('bin', "name", "chrom", "strand", "txStart", "txEnd", "cdsStart", "cdsEnd", "exonCount", "exonStarts", "exonEnds", "score", "name2", "cdsStartStat", "cdsEndStat", "exonFrames" )
     genes = genes[,.(bin, Chr=chrom, start=txStart, end=txEnd, strand, cdStart=cdsStart, cdEnd=cdsEnd,
                       ID=name, name=name2, exonCount, exonStarts, exonEnds)]
+    genes <- genes[Chr == paste("chr", chr, sep="")]
     # starts and ends are in order (starts always < ends) regardless of strands
     print(dim(genes))
     return(genes[ start <= right & end >= left])
@@ -120,7 +121,9 @@ plotFancyGenes <- function(genes, noRNA=FALSE){
   p <- ggplot() + geom_rect(data=Tracks, aes(xmin=start, xmax=end, ymin=-10*layer+5.5, ymax=-10*layer+6.5), fill='#666666')
   p <- p +geom_rect(data=Exons, aes(xmin=Estart, xmax=Eend, ymin=-10*layer+4, ymax=-10*layer+8), fill = '#323232')
 
-  p <- p + geom_text_repel(data=Names, aes(y=-10*layer+4, x=pos, label=name), force=20, size=4, family='Helvetica', fontface='bold.italic', color='black', segment.size=0.3, direction='y', ylim=c(NA, -6) ) 
+  p <- p + geom_text_repel(data=Names, aes(y=-10*layer+4, x=pos, label=name), force=20, size=4, 
+                           family='Helvetica', fontface='bold.italic', color='black', 
+                           segment.size=0.3, direction='y', ylim=c(NA, -6) ) 
 
   ###final touch
   p <- p + theme_minimal() + theme(axis.title.y=element_blank(),
@@ -135,7 +138,7 @@ plotFancyGenes <- function(genes, noRNA=FALSE){
 }
 
 ##plot the (left, right) region on chromosome ch, with scores, ancestry track, gene track, and inferred parameter track
-plotPeak <- function(ch, inputname, left, right, outputname, statname){
+plotPeak <- function(ch, inputname, left, right, outputname, statname, uncorrected_cutoff=0.05){
   DT = data.table(read.table(inputname, header=FALSE, sep="\t", comment="#"))
   colnames(DT) <- c('locus', 'ongrid_s2hat', 'ongrid_maxLogLikelihood', 's2hat', 'maxLogLikelihood', 'MLR', 'chi2_p')
   DT[, c("Chr", "physPos", "rsID", "placeholder4", "placeholder5")] <- tstrsplit(DT$locus, "_", fixed = TRUE)
@@ -157,13 +160,12 @@ plotPeak <- function(ch, inputname, left, right, outputname, statname){
                                   fill="white", size=6, box.padding=0.5)
     # need to rotate y axis label
     p1 <- p1 + theme_minimal() + theme(axis.title.y=element_text(angle=90))
-  }
-  else if (statname == "pval"){
+  }else if (statname == "pval"){
     p1 <- plotManChrs(peak[,.(Chr, physPos, stat=-log10(chi2_p), colorscale=s2hat)],
-                      left=left, right=right, statname=TeX(r"($-log_{10}p$)"),
+                      left=left, right=right, statname=TeX(r"($-log_{10}p_{\chi^2(1)}$)"),
                       colorstat=TeX(r"($\hat{s}_{AA}$)") )
     # need to rotate y axis label
-    p1 <- p1 + theme_minimal() + theme(axis.title.y=element_text(angle=0))
+    p1 <- p1 + theme_minimal() #+ theme(axis.title.y=element_text(angle=0))
     # maybe label the top SNPs?
     tops <- peak[order(MLR, decreasing=TRUE)]
     tops$logP <- -log10(tops$chi2_p)
@@ -171,8 +173,14 @@ plotPeak <- function(ch, inputname, left, right, outputname, statname){
     p1 <- p1 + geom_label_repel(data=tops, aes(x=physPos, y=logP, label=rsID), arrow=arrow(length=unit(4, "pt")),
                                   force=20, direction="both", min.segment.length=unit(8, "pt"), segment.linetype=1, #
                                   fill="white", size=5, box.padding=0.5, ylim=c(9,NA))
-  } 
-  else if (statname == "MLE"){ # TBD: var to be color scale for s2hat
+    ### count all sites & draw sig. cutoff
+    if (uncorrected_cutoff != FALSE){
+      n_sites <- nrow(DT)
+      cat(n_sites, " SNPs on the chromosome\n")
+      cutoff <- uncorrected_cutoff / n_sites
+      p1 <- p1 + geom_hline(yintercept=-log10(cutoff), linewidth=0.5, linetype='dashed')
+    }
+  } else if (statname == "MLE"){ # TBD: var to be color scale for s2hat
     p1 <- plotManChrs(peak[,.(Chr, physPos, stat=s2hat, colorscale=-log10(chi2_p))],
                       left=left, right=right, statname=TeX(r"($\hat{s}_{AA}$)"),
                       colorstat=TeX(r"($-log_{10}p$)"))
@@ -216,6 +224,7 @@ plotPeak <- function(ch, inputname, left, right, outputname, statname){
       panel.grid.minor=element_blank(), panel.grid.major.y=element_blank(),
       axis.line.y=element_line(color='black', linewidth=0.5), plot.margin=margin(t=0, r=25, b=5, l=15, unit='pt'))
 
+    print(layers)
     if (layers > 10){
       n=3
     }else if (layers>5){
@@ -231,10 +240,11 @@ plotPeak <- function(ch, inputname, left, right, outputname, statname){
       )
     #theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.line.x=element_blank() )
     ### keep x axis for gene plot
-    pg <- pg  + xlab(paste('Positions on chromosome', ch) ) + theme( axis.title.x=element_text(size=18, hjust=0.5), 
-      axis.text.x=element_text(size=15, color='black'),
-      axis.line=element_line(color='black', linewidth=0.5), plot.margin=margin(t=-1, b=5, unit='pt')
-      )
+    pg <- pg  + xlab(paste('Positions on chromosome', ch) ) + 
+      theme( axis.title.x=element_text(size=18, hjust=0.5), 
+        axis.text.x=element_text(size=15, color='black'),
+        axis.line=element_line(color='black', linewidth=0.5), plot.margin=margin(t=-1, b=5, unit='pt')
+        )
 
     ###piece tracks together. the "align='v'" argument makes sure the x-axis of all plots align vertically. Labels can be add onto the plots too.
     pics <- ggarrange(p1, pg, heights=c(4, n+1.5), ncol=1, nrow=2, align='v'
@@ -242,14 +252,14 @@ plotPeak <- function(ch, inputname, left, right, outputname, statname){
       # font.label = list(size = 24, color = "black", face = "bold", family = 'Helvetica')
       )
     ###ggsave() will automatically output the plot in the format indicated in the filename
-    ggsave(outputname, plot=pics, width=14, height=7+n*.5, units='in', dpi=500 )
+    ggsave(outputname, plot=pics, width=14, height=7+n*.5, units='in', dpi=500, bg = 'white')
   }else{
     ###No gene in the area, dd x axis back to P1
     p1 <- p1 + theme( axis.title.x=element_text(size=18, hjust=0.5), 
       axis.text.x=element_text(size=15, color='black'),
       axis.line=element_line(color='black', linewidth=0.5), plot.margin=margin(b=5, unit='pt')
       )
-    ggsave(outputname, plot=p1, width=14, height=7, units='in', dpi=500) 
+    ggsave(outputname, plot=p1, width=14, height=7, units='in', dpi=500, bg = 'white') 
   }
   if(interactive())  return(DT)
 }
