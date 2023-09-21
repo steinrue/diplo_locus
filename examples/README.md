@@ -151,7 +151,7 @@ DiploLocus likelihood --u01 1.25e-8 --Ne 5000 --gen_time 28.1 \
 
 The resulting likelihood table can be similarly visualized with `examples/plot_contours.py`. For reference, below is the likelihood surface for rs4988235, a SNP regulating the expression of the lactase gene _LCT_: 
 
-[<img src="example_output/Ex2_v54_UK_rs4988235_unif_50x50linear2e-1_2_136608646_rs4988235_contour.png" width="600"/>](example_output/Ex2_v54_UK_rs4988235_unif_50x50linear2e-1_2_136608646_rs4988235_contour.png)
+[<img src="example_output/Ex2_v54_UK_rs4988235_unif_50X50linear2e-1_2_136608646_rs4988235_contour.png" width="600"/>](example_output/Ex2_v54_UK_rs4988235_unif_50X50linear2e-1_2_136608646_rs4988235_contour.png)
 
 ----
 <a id="ex3"></a>
