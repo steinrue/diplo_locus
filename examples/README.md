@@ -6,16 +6,16 @@ To download input files to be used in this tutorial, first make sure `diplo-locu
 ```shell
 # only clone the `examples/` folder in the repo
 ## this command only create the repo directory & will not download any file yet
-$ git clone -n --depth=1 --filter=tree:0 https://github.com/steinrue/diplo_locus
+git clone -n --depth=1 --filter=tree:0 https://github.com/steinrue/diplo_locus
 ## move to the repo
-$ cd diplo_locus/
+cd diplo_locus/
 ## choose to only clone the `examples` folder:
-$ git sparse-checkout set --no-cone examples
+git sparse-checkout set --no-cone examples
 ## check things out
-$ git checkout
+git checkout
 
 # move there
-$ cd examples/
+cd examples/
 ```
 
 From here, all example cases in this tutorial will assume `example/` be the working directory.

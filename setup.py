@@ -12,7 +12,7 @@ if __name__ == '__main__':
           long_description_content_type='text/markdown',
           version='1.1.0',
           python_requires=">=3.8",
-          install_requires=['numpy', 'scipy', 'pandas', 'matplotlib'],
+          install_requires=['numpy', 'scipy', 'pandas', 'matplotlib', 'scikit-allel'],
           packages=find_packages(),  # 'src'
           py_modules=['diplo_locus', 'diplo_locus.likelihood', 'diplo_locus.utility',
                       'diplo_locus.simulate', 'diplo_locus.diffusion_core'],
