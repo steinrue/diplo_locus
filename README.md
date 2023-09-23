@@ -6,10 +6,6 @@
 
 This repo hosts Python CLI tool (`DiploLocus`) and python package (`diplo_locus`) for simulating and computing log-likelihoods for time series genetic data based on the diploid Wright-Fisher diffusion.
 
-To cite our application, use the reference:
-
->   Cheng, X. and Steinruecken, M. (2023) diplo-locus: A lightweight toolkit for inference and simulation of time-series genetic data under general diploid selection. _XYZ_(xy):1234
-
 --------------------
 
 # Table of Contents
