@@ -10,9 +10,10 @@ if __name__ == '__main__':
           description='Light-weight toolkit for the inference and simulation of Wright-Fisher diploid selection on independent loci from time-series data.',
           long_description=open('README.md', 'r').read(),
           long_description_content_type='text/markdown',
-          version='1.1.0',
+          version='1.2.0',
           python_requires=">=3.8",
-          install_requires=['numpy', 'scipy', 'pandas', 'matplotlib', 'scikit-allel'],
+        #   install_requires=['numpy', 'scipy', 'pandas', 'matplotlib'],
+          install_requires=['numpy>=1.21.0,<2', 'scipy>=1.7.0', 'pandas>=1.4.0', 'matplotlib>=3.6.0', 'scikit-allel>=1.3.1'],
           packages=find_packages(),  # 'src'
           py_modules=['diplo_locus', 'diplo_locus.likelihood', 'diplo_locus.utility',
                       'diplo_locus.simulate', 'diplo_locus.diffusion_core'],

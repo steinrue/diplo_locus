@@ -234,7 +234,7 @@ class SelHmm:
             selectionChangeTimes=None,selectionGridObject=None)
         Set up & parameterize the HMM
 
-    computeLikelihood(times, samplesSizes, samples)
+    computeLogLikelihood(times, samplesSizes, samples)
         Compute log-likelihoods of observing `samples` out of `sampleSizes` at (forward) generation `times`.
     """
     

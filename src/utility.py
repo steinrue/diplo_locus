@@ -43,48 +43,83 @@ def _get_geom_grid(left: float, right: float, grid_num, Ne):
     return s_range
 
 
-# infile header needs to be fixed
-def parse_allele_counts(infile: str, snp_list=None, minMAF: float = 0.):
+# infile header needs to be fixed  ##, minMAF: float = 0.
+def parse_allele_counts(infile: str, snp_list=None,  # minMAF=args.MAF,
+                        chr_col: str=None, pos_col: str=None, snpID_col: str=None):
     """Parse the allele count file. Must have header.
+    12/12/2023 Update: remove minMAF filter. Add column name option for chr, pos, and ID
     Return `numpy.array(locus_names)`, `numpy.array(samples)`, `numpy.array(sampleSizes)`
     """
     parsed = pd.read_csv(infile, sep="\t", header=0, comment="#")
     header = parsed.columns
-    pos_regex = re.compile(r'^(locus|ch|pos|position|id)$')
-    # sanity check
-    # retrieve snp names + down-sample if needed
-    id_cols = [colname for colname in header if pos_regex.search(colname.lower())]
-    # locus_names = numpy.array(parsed.locus)
-    if 'ID' in id_cols:
-        if snp_list is not None:
-            parsed = parsed[parsed.ID.isin(snp_list)]
-        locus_names = numpy.array(parsed.ID)
-    elif 'locus' in id_cols:
-        if snp_list is not None:
-            parsed = parsed[parsed.locus.isin(snp_list)]
-        locus_names = numpy.array(parsed.locus)
-    else:
-        if snp_list is None:
-            # no need to pick one, actually. just concatenate them
-            locus_names = numpy.array(parsed.loc[:, id_cols])
-            locus_names = numpy.apply_along_axis(lambda l: '_'.join(l), axis=1, arr=locus_names)
-        else:
-            id_colname = input('Please specify the ID column name used for `--snps` (Case-sensitive):')
-            # down sample
-            parsed = parsed[parsed[id_colname].isin(snp_list)]
-            locus_names = numpy.array(parsed[id_colname])
+    # retrieve snp names
+    # pos_regex = re.compile(r'(locus|ch|pos|position|id|rep)')
+    # id_cols = [colname for colname in header if pos_regex.search(colname.lower())]
+    id_cols = [colname for colname in header if (colname == 'ID')]
+    assert (len(id_cols) == 1), "Exactly one column 'ID' with unique identifier needed in input allele counts file."
+    # see if any of the column names are provided:
+    if chr_col is not None:
+        assert chr_col in id_cols, f'Please provide `--chrom_col` column name that exactly match the input file. '
+        if chr_col != 'Chr':
+            parsed = parsed.rename({chr_col: 'Chr'}, axis='columns')
+    if pos_col is not None:
+        assert pos_col in id_cols, f'Please provide `--pos_col` column name that exactly match the input file. '
+        if pos_col != 'physPos':
+            parsed = parsed.rename({pos_col: 'physPos'}, axis='columns')
+    if snpID_col is not None:
+        assert snpID_col in id_cols, f'Please provide `--snp_col` column name that exactly match the input file. '
+        if snpID_col != 'snpID':
+            parsed = parsed.rename({chr_col: 'snpID'}, axis='columns')
+    # re-collect id columns if anything changes:
+    # if chr_col or pos_col or snpID_col:
+    #     id_cols = [colname for colname in header if pos_regex.search(colname.lower())]
+    # then decide what becomes `locus_names`
+    ## prioritize SNP ids
+    # if snpID_col is not None:
+    #     if snp_list is not None:
+    #         parsed = parsed[parsed.snpID.isin(snp_list)]
+    #     locus_names = numpy.array(parsed.loc[:, 'snpID'])
+    # elif 'locus' in id_cols:
+    #     if snp_list is not None:
+    #         parsed = parsed[parsed.locus.isin(snp_list)]
+    #     locus_names = numpy.array(parsed.locus)
+    # ## if both chr and pos are provided, then proceed with that
+    # elif (chr_col is not None) and (pos_col is not None):
+    #     parsed['locus_name'] = parsed.loc[:, ['Chr', 'physPos']].apply(lambda l: '_'.join([str(c) for c in l]), axis=1)
+    #     # now down sample if needed
+    #     if snp_list is not None:
+    #         parsed = parsed[parsed.locus_name.isin(snp_list)]
+    #     locus_names = numpy.array(parsed.locus_name)
+    # ## in all other cases, concatenate all id columns:
+    # else:
+    parsed['locus_name'] = parsed.loc[:, id_cols].apply(lambda l: '_'.join([str(c) for c in l]), axis=1)
+    # remove old ID column
+    parsed = parsed.drop(columns=['ID'])
+    # now down sample if needed
+    if snp_list is not None:
+        parsed = parsed[parsed.locus_name.isin(snp_list)]
+    locus_names = numpy.array(parsed.locus_name)
+
     # just some sanity check
     if snp_list is not None:
         assert parsed.shape[1] > 0, f'No intersection between variants in allele count file and ' \
-                                    f'those listed by `--snps`. Please double check your input.'
+                                    f'those listed by `--snps`. Please double check your input, then' \
+                                    f'specify the column name for variant IDs with `--snp_col`.'
         sys.exit()
+
+    # more sanity checks
+    # print (parsed.shape)
     # retrieve all xk column names
-    d_regex = re.compile(r'^[xd](\d+)$')
+    # d_regex = re.compile(r'^[xd](\d+)$')
+    d_regex = re.compile(r'^d(\d+)$')
     n_regex = re.compile(r'^n(\d+)$')
     d_cols = [colname for colname in header if d_regex.search(colname)]
     n_cols = [colname for colname in header if n_regex.search(colname)]
     # sanity check
-    assert len(d_cols) == len(n_cols), f'd_cols={d_cols}; n_cols={n_cols}'
+    assert len(d_cols) == len(n_cols), f'Equal number of samples and sample sizes needed: d_cols={d_cols}; n_cols={n_cols}'
+    assert (len(d_cols) >= 2), "Need at least two sampling batches in input file. Maybe file is not tab-seperated."
+    # print (parsed.columns)
+    assert (1 + len(d_cols) + len(d_cols) == parsed.shape[1]), f"Columns in input file that are not 'ID', samples sizes (nx), or num dervived alleles (dx). Check that file is tab-seperated, or remove before proceeding. ({1 + len(d_cols) + len(d_cols)}, {parsed.shape[1]})"
     # sanity check: the indices are monotonously ordered
     try:
         d_col_num = [int(d_regex.findall(colname)[0]) for colname in header if d_regex.search(colname)]
@@ -101,22 +136,22 @@ def parse_allele_counts(infile: str, snp_list=None, minMAF: float = 0.):
     samples = numpy.array(parsed.loc[:, d_cols])
     sampleSizes = numpy.array(parsed.loc[:, n_cols])
 
-    # down-sample by pooled MAF
+    # down-sample by <del>pooled MAF</del>
     ## remove ones without observations first: (mostly to avoid zero division
     observed = (sampleSizes.sum(axis=1) > 0)
     samples = samples[observed, :]
     sampleSizes = sampleSizes[observed, :]
     locus_names = locus_names[observed]
     ## divide
-    freqs = samples.sum(axis=1) / sampleSizes.sum(axis=1)
-    ## fold
-    freqs = numpy.where(freqs < 0.5, freqs, 1 - freqs)
-    # filter
-    passed_rows = (freqs > minMAF)
+    # freqs = samples.sum(axis=1) / sampleSizes.sum(axis=1)
+    # ## fold
+    # freqs = numpy.where(freqs < 0.5, freqs, 1 - freqs)
+    # # filter
+    # passed_rows = (freqs > minMAF)
     # down sample
-    samples = samples[passed_rows, :]
-    sampleSizes = sampleSizes[passed_rows, :]
-    locus_names = locus_names[passed_rows]
+    # samples = samples[passed_rows, :]
+    # sampleSizes = sampleSizes[passed_rows, :]
+    # locus_names = locus_names[passed_rows]
 
     return locus_names, samples, sampleSizes
 
@@ -305,15 +340,22 @@ def _flatten_list_of_lists(manyPools: list):
 
 def parse_forced_ploidy_arg(forced_ones, all_samples, Type):
     # start with sanity check
-    assert isinstance(forced_ones, str), \
-        f'Unrecognized {Type} argument value type {type(forced_ones)}: {forced_ones}'
-    # now they're all strings
-    if forced_ones == "all":
-        return set(all_samples)
-    elif forced_ones == "none":
-        return set([])
+    # assert isinstance(forced_ones, str), \
+    #     f'Unrecognized {Type} argument value type {type(forced_ones)}: {forced_ones}'
+    if isinstance(forced_ones, str):
+        # now they're all strings
+        if forced_ones == "all":
+            return set(all_samples)
+        elif forced_ones == "none":
+            return set([])
+        else:
+            return set(parse_ind_arg(forced_ones, Type))
+    elif isinstance(forced_ones, set):  # or isinstance(forced_ones, dict):
+        return forced_ones
+    elif isinstance(forced_ones, dict):
+        return set(forced_ones.keys())
     else:
-        return set(parse_ind_arg(forced_ones, Type))
+        raise ValueError(f'Unrecognized `{Type}` argument value type {type(forced_ones)}: {forced_ones}')
 
 
 import allel
@@ -337,7 +379,8 @@ def parse_vcf_input(vcffile: str, samplePools: list, sampleTimes=None, inds=None
     :param sampleTimes: list of time points for each batch of samples
     :param forced_haps: list of sample IDs, as shown in VCF column names, to be counted as haploids
     :param forced_dips: list of sample IDs, as shown in VCF column names, to be double-counted as diploids if a GT is presented as haploid.
-    :param minMAF: float, minimum threshold (non-inclusive) for minor allele frequencies in the pooled samples.
+    :param pos_range: str, optional, argument to indicate the range of physical positions to consider.
+    :param minMAF: float, *PHASING OUT* minimum threshold (non-inclusive) for minor allele frequencies in the pooled samples.
     -----------------------------
     :return: numpy.array(locus_names), numpy.array(samples), numpy.array(sampleSizes), numpy.array(sampleTimes), sampleIDpools
     """
@@ -415,7 +458,7 @@ def parse_vcf_input(vcffile: str, samplePools: list, sampleTimes=None, inds=None
     vcf_sample_pool = vcf['samples']
     ## get indices for each time pool
     ## samples in this pool are the intersection between vcf pool and info pool
-    ### TODO: maybe use np.where instead of list.index to make it faster? <-- after making sure all elements exist
+    # TODO: maybe use np.where instead of list.index to make it faster? <-- after making sure all elements exist
     sampleIndexPools = [[list(vcf_sample_pool).index(sampID) for sampID in thisSamplePool if sampID in vcf_sample_pool]
                         for thisSamplePool in samplePools]
     ### these are the indice in OG vcf
@@ -538,27 +581,183 @@ def parse_vcf_input(vcffile: str, samplePools: list, sampleTimes=None, inds=None
     else:
         newSampleTimes = numpy.array([0] + kept_timePool_indice)
 
-    # down-sample by pooled MAF
+    # down-sample by pooled MAF  ## <-- *PHASING OUT* all minMAF filtering will be moved to `filter_snps`
     ## remove ones without observations first: (mostly to avoid zero division
     observed = (sampleSizes.sum(axis=1) > 0)
     samples = samples[observed, :]
     sampleSizes = sampleSizes[observed, :]
     locus_names = numpy.array(locus_names)[observed]
-    ## divide
-    freqs = samples.sum(axis=1) / sampleSizes.sum(axis=1)
-    ## fold
-    freqs = numpy.where(freqs < 0.5, freqs, 1 - freqs)
-    # filter
-    passed_rows = (freqs > minMAF)
-    # down sample
-    samples = samples[passed_rows, :]
-    sampleSizes = sampleSizes[passed_rows, :]
-    locus_names = locus_names[passed_rows]
+    # ## divide
+    if minMAF > 0:
+        print(f'All minMAF filters will be applied in `filter_snps()` function/step only.')
+    # freqs = samples.sum(axis=1) / sampleSizes.sum(axis=1)
+    # ## fold
+    # freqs = numpy.where(freqs < 0.5, freqs, 1 - freqs)
+    # # filter
+    # passed_rows = (freqs > minMAF)
+    # # down sample
+    # samples = samples[passed_rows, :]
+    # sampleSizes = sampleSizes[passed_rows, :]
+    # locus_names = locus_names[passed_rows]
     # sanity check to make sure the dimensions match
     assert samples.shape == sampleSizes.shape, f'ValueError: samples.shape = {samples.shape} != sampleSizes.shape = {sampleSizes.shape}.'
     assert samples.shape[0] > 0, f'VCF file is empty. samples.shape = {samples.shape}.'
     # output
     return numpy.array(locus_names), numpy.array(samples), numpy.array(sampleSizes), newSampleTimes
+
+
+def _format_to_dotless_e(number):
+    # Format the number in "e" notation and convert it to a float
+    formatted_number = "{:e}".format(float(number))
+    # exponent = float(formatted_number.split("e")[1])
+    e_part1, e_part2 = formatted_number.split("e")
+    # remove zeros at the end:
+    e_part2 = int(e_part2)
+    if number >= 1:
+        while not np.isclose(float(e_part1) - int(e_part1.split(".")[0]), 0):
+            part1_update = float(e_part1) * 10
+            e_part2 -= 1
+            e_part1 = str(part1_update)
+        # print(e_part1, e_part2)
+        # only look at integer part
+        while e_part1.endswith("0"):
+            e_part1 = e_part1[:-1]
+            e_part2 -= 1
+            # print(e_part1, e_part2)
+    else:
+        # only look at decimal part
+        while e_part1.startswith("0"):
+            e_part1 = e_part1[1:]
+            e_part2 += 1
+            # print(e_part1, e_part2)
+    # Convert the number to an integer to remove the decimal point and trailing zeros
+    # formatted_integer = int(float(e_part1))
+    return "{:d}e{:d}".format(int(float(e_part1)), int(e_part2) + 1)
+
+
+def _parse_pos_arg(pos_arg: str):
+    """Helper function to parse the string to indicate range of physical positions"""
+    numbers = float_regex.findall(pos_arg)
+    if len(numbers) == 2:
+        left_pos, right_pos = sorted([float(p) for p in numbers])
+        # pos_range = (left_pos, right_pos)
+        pos_tag = f'_{_format_to_dotless_e(left_pos)}-{_format_to_dotless_e(right_pos)}'
+    elif len(numbers) == 1:
+        # need to tell which one
+        assert "-" in pos_arg, pos_arg
+        pos_range = pos_arg.split("-")
+        if int_regex.search(pos_range[0]):
+            left_pos = int(pos_range[0])
+            right_pos = None
+        elif int_regex.search(pos_range[1]):
+            left_pos = None
+            right_pos = int(pos_range[1])
+        else:
+            raise ValueError(f'cannot parse the position flag: {pos_arg}.')
+            # sys.exit(1)
+        # pos_range = (left_pos, right_pos)
+    else:
+        raise ValueError(f'cannot parse the position flag: {pos_arg}.')
+        # sys.exit(1)
+    return left_pos, right_pos, pos_tag
+
+
+def _split_locus_name(locus_name):
+    split_names = locus_name.split("_")
+    if len(split_names) > 3:
+        Chr, physPos = split_names[0], split_names[1]
+        rsID = '_'.join(split_names[2:])
+    elif len(split_names) == 3:
+        Chr, physPos, rsID = split_names
+    elif len(split_names) == 2:
+        Chr, physPos = split_names
+        rsID = locus_name
+    else:
+        return False
+    return Chr, int(physPos), rsID
+
+
+def filter_snps(Samples, K, n_max, minK, missingness: float, minMAF: float=0., chroms=None, pos_arg=None):
+    """Remove loci whose data don't pass the filters. Input: allelic count matrix
+    """
+    sample_cols = [f'd{i}' for i in range(1, (K + 1))]
+    size_cols = [f'n{j}' for j in range(1, (K + 1))]
+    tag = ''
+
+    ## parse chrom
+    if chroms is not None:
+        assert 'Chr' in Samples.columns, f'To specify chromosome, \"Chr\" column must exist in the input.' \
+                                         f'Samples.columns = {Samples.clumns}'
+        Chroms = chroms.split(',')
+        Chroms = [str(c).strip() for c in Chroms if len(c) > 0]
+        Samples = Samples[Samples.Chr.str.isin(Chroms)]
+        print(f'Keeping {Samples.shape[0]} SNPs on chromosome(s) {Chroms}')
+        tag += f'_chr{chroms}'
+    else:
+        Chroms = None
+    ## then position
+    if pos_arg is not None:
+        if 'Chr' in Samples.columns:
+            assert (len(Samples.Chr.values) == 1) or (Chroms is not None), \
+                f'Chroms: {Chroms}, position range {pos_arg}'
+        left_pos, right_pos, pos_tag = _parse_pos_arg(pos_arg)
+        tag += pos_tag
+        # now we filter
+        before = Samples.shape[0]
+        Samples = Samples[(Samples.physPos >= left_pos) & (Samples.physPos <= right_pos)]
+        after = Samples.shape[0]
+        print(f'Keeping {after} SNPs (from {before}) positioned between {int(left_pos)} to {int(right_pos)}')
+
+    # another sanity check
+    assert np.all(np.array(Samples[sample_cols]) <= np.array(Samples[size_cols])), \
+        'allele counts must be no greater than respective samples sizes.'
+    Samples.loc[:, 'pooled_d'] = Samples[sample_cols].sum(axis=1)
+    Samples.loc[:, 'pooled_n'] = Samples[size_cols].sum(axis=1)
+
+    ## now check out number of times observed
+    if minK > 0:
+        Samples['times_obs'] = (Samples[size_cols] > 0).sum(axis=1)
+        before = Samples.shape[0]
+        Samples = Samples[Samples.times_obs >= minK]
+        after = Samples.shape[0]
+        print(f'Remove {before - after} SNPs with <{minK} times/pools of observations. {after} SNPs left.')
+        tag += f'_minK{minK:d}'
+
+    # filter for missingness <--- float in (0, 1)
+    before = Samples.shape[0]
+    # print(Samples.pooled_n.dtype)
+    Samples = Samples[(Samples.pooled_n > missingness * sum(n_max))]
+    tag += f'_minObs{missingness:g}'
+    after = Samples.shape[0]
+    print(f'{after} SNPs (out of {before}) passed missingness filter (:= pooled_n > sum(n_max)*{missingness:g} ).')
+
+    ## lastly: MAF
+    assert 0 <= minMAF < 0.5, f'Invalid minor allele frequency cutoff: {minMAF}'
+    tag += f'_MAF{str(minMAF)[1:]}'
+    # get maf
+    ## remove empty rows first
+    before = Samples.shape[0]
+    Samples = Samples[Samples.pooled_n > 0]
+    after = Samples.shape[0]
+    print(f'Remove {before - after} sites with zero samples')
+    ## fold
+    Samples.loc[:, 'pooled_mad'] = Samples.pooled_d.where(
+        Samples.pooled_d.copy() <= 0.5 * Samples.pooled_n.copy(),
+        (Samples.pooled_n.copy() - Samples.pooled_d.copy()))
+    ## actual MAF filter
+    before = Samples.shape[0]
+    Samples['pooledMAF'] = Samples.pooled_mad / Samples.pooled_n  # .replace(0, np.nan) <-- there shouldn't be n=0 anymore
+    Samples = Samples[Samples.pooledMAF > minMAF]
+    after = Samples.shape[0]
+    print(f' Remove {before - after} SNPs whose pooled MAF <= {minMAF}. {after} left.')
+    # remove aux column?
+    Samples = Samples.drop(columns=['pooled_d', 'pooled_mad', 'pooled_n'])
+
+    # d columns with 0 counts throughout will not be removed to stay consistent with sample_times
+
+    # done going through all filter args, return df
+    ## exclude the "_" at the beginning of the tag
+    return Samples, tag[1:]
 
 
 def _reformat_LL_DF_to_matrix(onGrid_LLs):
@@ -710,7 +909,7 @@ def interpolate_offGrid_max(s1_list, s2_list, s_pairs, num_pairs, LLmatrix):
         # 2d-grid
         print('WARNING: Do not interpolate off-grid max for 2D parameter grid. Only on-grid values will be reported.')
         header = '\t'.join(
-            ['locus', 'ongrid_s1hat', 'ongrid_s2hat', 'ongrid_maxLogLikelihood'])
+            ['ID', 'ongrid_s1hat', 'ongrid_s2hat', 'ongrid_maxLogLikelihood'])
 
         # maxLLs is of dimension 3/
         maxLLs = get_onGrid_max_only(s_pairs, LLmatrix)
@@ -727,15 +926,15 @@ def interpolate_offGrid_max(s1_list, s2_list, s_pairs, num_pairs, LLmatrix):
         # fix h
         if s1_gridnum == num_pairs and s2_gridnum == num_pairs:
             var_list = list(zip(*s_pairs))[1]
-            header = '\t'.join(['locus', 'ongrid_s2hat', 'ongrid_maxLogLikelihood', 's2hat', 'maxLogLikelihood'])
+            header = '\t'.join(['ID', 'ongrid_s2hat', 'ongrid_maxLogLikelihood', 's2hat', 'maxLogLikelihood'])
         # fix s1
         elif s1_gridnum == 1:
             var_list = list(zip(*s_pairs))[1]
-            header = '\t'.join(['locus', 'ongrid_s2hat', 'ongrid_maxLogLikelihood', 's2hat', 'maxLogLikelihood'])
+            header = '\t'.join(['ID', 'ongrid_s2hat', 'ongrid_maxLogLikelihood', 's2hat', 'maxLogLikelihood'])
         # fix s2
         elif s2_gridnum == 1:
             var_list = list(zip(*s_pairs))[0]
-            header = '\t'.join(['locus', 'ongrid_s1hat', 'ongrid_maxLogLikelihood', 's1hat', 'maxLogLikelihood'])
+            header = '\t'.join(['ID', 'ongrid_s1hat', 'ongrid_maxLogLikelihood', 's1hat', 'maxLogLikelihood'])
         else:
             print(f's1_gridnum={s1_gridnum}; s2_gridnum={s2_gridnum}; num_pairs={num_pairs}')
             print(f's1_list={s1_list}\ns2_list={s2_list}\ns_pairs={s_pairs}.')

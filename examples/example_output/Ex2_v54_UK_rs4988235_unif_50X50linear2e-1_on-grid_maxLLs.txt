@@ -1,10 +1,10 @@
-# ## DiploLocus-likelihood. u01 = 1.25e-08, u10 = 1.25e-08, Ne = 5000.0
-# ## Analyze 2601 pairs of sel. coef.
-# ## 1 loci from `--snps`
-# ## VCF: Ex2_UK_v54.1_all_chr2_135e6-137e6.vcf
-# ## meta info: Ex2_v54_UK_1240K_noFam_strictPASS_from4500.info
-# ## generation time 28.1 units,## Computing likelihoods for 1 loci at 94 time points: 0, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 31, 32, 34, 35, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 49, 50, 51, 52, 55, 56, 57, 58, 59, 60, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 94, 96, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 129
-# ## 	Max sample sizes at each time: 1, 1, 1, 1, 0, 3, 4, 0, 1, 3, 3, 2, 2, 3, 3, 3, 4, 1, 1, 0, 3, 4, 3, 1, 0, 1, 0, 0, 1, 1, 1, 2, 4, 1, 0, 1, 4, 3, 1, 2, 2, 1, 1, 2, 2, 0, 1, 2, 1, 3, 5, 2, 1, 5, 3, 4, 1, 2, 5, 4, 2, 0, 2, 7, 3, 23, 45, 14, 19, 5, 5, 6, 14, 5, 1, 4, 3, 6, 0, 4, 1, 4, 20, 0, 5, 4, 1, 1, 1, 1, 3, 40, 1, 1
-# ## Assume constant selection pressure throughout the duration considered
-# ID	ongrid_s1hat	ongrid_s2hat	ongrid_maxLogLikelihood
+## DiploLocus-likelihood. u01 = 1.25e-08, u10 = 1.25e-08, Ne = 5000.0
+## Analyze 2601 pairs of sel. coef.
+## 1 loci from `--snps`
+## VCF: Ex2_UK_v54.1_all_chr2_135e6-137e6.vcf
+## meta info: Ex2_v54_UK_1240K_noFam_strictPASS_from4500.info
+## generation time 28.1 units,## Computing likelihoods for 1 loci at 94 time points: 0, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 31, 32, 34, 35, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 49, 50, 51, 52, 55, 56, 57, 58, 59, 60, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 94, 96, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 129
+##    Max sample sizes at each time: 1, 1, 1, 1, 0, 3, 4, 0, 1, 3, 3, 2, 2, 3, 3, 3, 4, 1, 1, 0, 3, 4, 3, 1, 0, 1, 0, 0, 1, 1, 1, 2, 4, 1, 0, 1, 4, 3, 1, 2, 2, 1, 1, 2, 2, 0, 1, 2, 1, 3, 5, 2, 1, 5, 3, 4, 1, 2, 5, 4, 2, 0, 2, 7, 3, 23, 45, 14, 19, 5, 5, 6, 14, 5, 1, 4, 3, 6, 0, 4, 1, 4, 20, 0, 5, 4, 1, 1, 1, 1, 3, 40, 1, 1
+## Assume constant selection pressure throughout the duration considered
+ID	ongrid_s1hat	ongrid_s2hat	ongrid_maxLogLikelihood
 2_136608646_rs4988235	0.055999999999999994	0.07200000000000001	-79.66474703009753

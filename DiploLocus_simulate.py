@@ -32,7 +32,7 @@ def write_output(samples, trajs, sampleSizes, notes, outPrefix, write_traj, gzip
 
     num_reps, num_samps = samples.shape
     # write header:
-    header = "locus\t" + "\t".join([f'x{k}\tn{k}' for k in range(1, num_samps + 1)]) + "\n"
+    header = "ID\t" + "\t".join([f'd{k}\tn{k}' for k in range(1, num_samps + 1)]) + "\n"
     samples_handle.write(header)
     # sanity check
     assert num_samps == len(sampleSizes)
@@ -144,9 +144,9 @@ def sim_args_parser(parser):
     # some pop gen parameters
     param = parser.add_argument_group('Population Parameters')
     param.add_argument('--u01', dest='u01', default=None, required=True, type=float,
-                       help="Forward mutation rate (/site/generation).")
+                       help="Mutation rate allele 0 to allele 1 (/site/generation).")
     param.add_argument('--u10', dest='u10', default=None, type=float,  # required=True,
-                       help='Backward mutation rate (/site/generation). Default to be equal to u01.')
+                       help='Mutation rate allele 1 to allele 0 (/site/generation). Default is u01.')
     param.add_argument('--Ne', dest='Ne', default=None, required=True, type=float,
                        help='Effective diploid population size (i.e., total #(allele)=2Ne ).')
 
@@ -190,16 +190,16 @@ def sim_args_parser(parser):
     init.add_argument('--initDistn', dest='initDistnFile', required=('custom' in sys.argv),
                       help='Path and name to the file specifying a particular frequency distribution as the initial condition.')
     init.add_argument('--init_u01', dest='init_u01', type=float, default=None,
-                      help='Specify forward mutation rate for the stationary distribution. Default to be identical to u01.')
+                      help='Specify mutation rate allele 0 to allele 1 for the initial distribution. Default to be identical to u01.')
     init.add_argument('--init_u10', dest='init_u10', type=float, default=None,
-                      help='Specify backward mutation rate for the stationary distribution. Default to be identical to u10.')
+                      help='Specify mutation rate allele 1 to allele 0 for the initial distribution. Default to be identical to u10.')
 
     out = parser.add_argument_group('Output Options')
     out.add_argument('-o', '--out_prefix', required=True, dest='outPrefix', help='Path and prefix of the output file.')
     out.add_argument('--write_traj', dest='write_traj', default=False, action='store_true',
                      help='Option to also write out the trajectories of replicates.')
-    out.add_argument('--gzip_output', dest='gzip_output', choices=['s', 't', 'st', 'ts'], default='t',
-                     help='Option to write output in .gz format. Use \"s\" to indicate sample file, \"t\" to indicate trajectory file, and \"st\" (or \"ts\") for both.')
+    out.add_argument('--gzip_output', dest='gzip_output', choices=['none', 's', 't', 'st', 'ts'], default='t',
+                     help='Option to write output in .gz format. Use \"s\" to indicate sample file, \"t\" to indicate trajectory file, and \"st\" (or \"ts\") for both. Use \"none\" to not zip either.')
     out.add_argument('--plot_trajs', dest='plot_trajs', default=None, action='store_true',
                      help='Option to plot the population allele frequency trajectories of up to 10 replicates.')
     out.add_argument('--plot_samples', dest='plot_samples', default=None, action='store_true',
@@ -209,8 +209,8 @@ def sim_args_parser(parser):
 
     diffParam = parser.add_argument_group('Other Diffusion Parameters')
     diffParam.add_argument('--deltaT', dest='deltaT', type=float, default=0.05,
-                           help='Unit increment of time (in generations).')
-    diffParam.add_argument('--seed', dest='sd', type=int, default=None, help='Specify random seeds.')
+                           help='Time increment used for simulating under the diffusion (in generations). Default is 0.05.')
+    diffParam.add_argument('--seed', dest='sd', type=int, default=None, help='Specify random seed.')
 
     return parser
 
@@ -219,9 +219,8 @@ def main(DL_args=None):
     # initiate parser
     parser = argparse.ArgumentParser(
         prog='DiploLocus_simulate.py',
-        description='Light-weight tool to simulate independent replicates of temporal samples under given parameters.',
-        epilog='https://github.com/bioXiaoheng/diplo_locus'
-    )
+        description='Light-weight tool to simulate independent replicates of temporal samples under given parameters.'
+        )
 
     sim_parser = sim_args_parser(parser)
 

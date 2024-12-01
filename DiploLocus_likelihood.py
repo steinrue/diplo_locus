@@ -2,9 +2,10 @@
 """
 Command-line interfacing Python script to compute likelihoods of allele frequency time series under general diploid selection in the Wright-Fisher diffusion.
 """
-import sys, os, re, time
+import sys, re, time
 import numpy as np
 import pandas as pd
+
 pd.set_option('display.max_colwidth', 255)
 
 # local import
@@ -12,20 +13,20 @@ pd.set_option('display.max_colwidth', 255)
 try:
     from diplo_locus import likelihood
     from diplo_locus.utility import _get_geom_grid, _reformat_LL_DF_to_matrix
-    from diplo_locus.utility import _reformat_longLLtable_to_matrix
+    from diplo_locus.utility import _reformat_longLLtable_to_matrix, _split_locus_name
     from diplo_locus.utility import parse_allele_counts, parse_vcf_input, parse_ind_arg
     from diplo_locus.utility import get_onGrid_max_only, interpolate_offGrid_max
 except ModuleNotFoundError or ImportError:
     # assume it's the repo directory
     from src import likelihood
     from src.utility import _get_geom_grid, _reformat_LL_DF_to_matrix
-    from src.utility import _reformat_longLLtable_to_matrix
+    from src.utility import _reformat_longLLtable_to_matrix, _split_locus_name
     from src.utility import parse_allele_counts, parse_vcf_input, parse_ind_arg
     from src.utility import get_onGrid_max_only, interpolate_offGrid_max
 
 
 # new simplified way to parse sampling time
-def parse_sampling_times(times: str, times_ago: str, gen_time=1, t0=None, force_t0=False):
+def parse_sampling_times(num_sample_batches: int, times: str, times_ago: str, gen_time=1, t0=None, force_t0=False):
     """Parse sampling times from command-line args. Return parsed sample times <: list>
      as in numbers of generations. Zero will be added at the beginning."""
 
@@ -33,7 +34,7 @@ def parse_sampling_times(times: str, times_ago: str, gen_time=1, t0=None, force_
         # sanity check: make sure it's ascending
         sampTimes_diff = np.diff(sampTimes)
         assert np.all(sampTimes_diff >= 0), \
-            f'Please ensure \"--sample_times\" be given ascending numbers.\nnp.diff={sampTimes_diff}'
+            f'Please ensure \"--sample_times\" are given in ascending order.\nnp.diff={sampTimes_diff}'
         # check t0
         if t_0 is not None:
             if t_0 > sampTimes[0]:
@@ -63,6 +64,7 @@ def parse_sampling_times(times: str, times_ago: str, gen_time=1, t0=None, force_
         assert np.all(Times_ago_diff <= 0), \
             f'Please ensure \'--sample_times_ago\' be given descending numbers.\nnp.diff={Times_ago_diff}'
         # check t0
+        print (t_0, Times_ago)
         if t_0 is not None:
             if t_0 < Times_ago[0]:
                 if force_t0:
@@ -75,11 +77,13 @@ def parse_sampling_times(times: str, times_ago: str, gen_time=1, t0=None, force_
                                      f'be considered in the subsequent computations. To continue '
                                      f'despite discarding these data, please use \'--force_t0\' to force it.')
             else:
-                sampTimes = [(t - t_0) / gen_time for t in Times_ago]
+                # sampTimes = [(t - t_0) / gen_time for t in Times_ago]
+                sampTimes = [(t_0 - t) / gen_time for t in Times_ago]
                 sample_cols_toKeep = list(range(len(sampTimes)))
         else:
             t_0 = Times_ago[0]
-            sampTimes = [(t - t_0) / gen_time for t in Times_ago]
+            # sampTimes = [(t - t_0) / gen_time for t in Times_ago]
+            sampTimes = [(t_0 - t) / gen_time for t in Times_ago]
             sample_cols_toKeep = list(range(len(sampTimes)))
         sampTimes = np.array(sampTimes)
         # sanity check: ascending
@@ -92,10 +96,12 @@ def parse_sampling_times(times: str, times_ago: str, gen_time=1, t0=None, force_
     if times is not None:
         # parse the command-line argument first
         sampleTimes = np.array([float(x) for x in times.strip().split(',')])
+        assert (num_sample_batches == len(sampleTimes)), f"Num sampling batches in data does not match num times specified: ({num_sample_batches}, {len(sampleTimes)})"
         sampleTimes, sample_cols_toKeep = _check_times(sampleTimes, t0)
     elif times_ago is not None:
         # parse the command-line argument first
         sampleTimes_ago = np.array([float(x) for x in times_ago.strip().split(',')])
+        assert (num_sample_batches == len(sampleTimes_ago)), f"Num sampling batches in data does not match num times specified: ({num_sample_batches}, {len(sampleTimes_ago)})"
         sampleTimes, sample_cols_toKeep = _check_times_ago(sampleTimes_ago, t0)
     else:
         raise TypeError('Sampling times must be provided when input file is parsed allele counts.')
@@ -130,10 +136,19 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
     :return:
     """
     infoTable = pd.read_csv(infofile, sep="\t")  # , comment="#", header=0
-    assert ID_colname in infoTable.columns, ValueError(f"VCF Info file must have a column named \"{ID_colname}\". Or specifiy ID-column using --ID_col.")
+    assert ID_colname in infoTable.columns, ValueError(
+        f"VCF Info file must have a column named \"{ID_colname}\". Or specifiy ID-column using --ID_col.")
     if time_colname is not None:
-        assert (time_colname in infoTable.columns) or (time_colname[:-4] in infoTable.columns), \
-            ValueError(f"VCF Info file must have a column named \"{time_colname}\". Or specifiy ID-column using --ID_col.")
+        # assert (time_colname in infoTable.columns) or (time_colname[:-4] in infoTable.columns), \
+        #     ValueError(
+        #         f"VCF Info file must have a column named \"{time_colname}\". Or specifiy time-column using --time_col or --time_ago_col.")
+        if (time_colname not in infoTable.columns) and (time_colname[:-4] not in infoTable.columns):
+            if (time_colname[-4:] == '_Ago'):
+                this_colnames = f"\"{time_colname}\" or \"{time_colname[:-4]}\""
+            else:
+                this_colnames = f"\"{time_colname}\""
+            print (f"VCF Info file must have a column named {this_colnames}. Or specifiy time-column using --time_col or --time_ago_col.")
+            sys.exit(1)
     # only keep the individual in inds
     if inds is not None:
         assert isinstance(inds, list), f'type(inds) = {type(inds)}'
@@ -148,12 +163,13 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
         if np.any(infotable[timeCol].isnull()):
             infotable = infotable[~infotable[timeCol].isnull()]
         if t0 is None:
-            t0 = min(infoTable['Gen'])
+            # t0 = min(infoTable['Gen'])
+            t0 = min(infoTable[timeCol])
             # t0 = 0
             print('Assuming selection starts at generation zero.')
         elif not force_t0:
-            assert t0 <= min(infotable[
-                                 "Gen"]), 'Please make sure selection start time `t0` is of the same unit as provided under the \"Gen\" column.\nIf selection is set to start after the oldest samples are collected, please use `--force_t0` to allow omitting data preceding the selection onset.'
+            # assert t0 <= min(infotable["Gen"]), 'Please make sure selection start time `t0` is of the same unit as provided under the \"Gen\" column.\nIf selection is set to start after the oldest samples are collected, please use `--force_t0` to allow omitting data preceding the selection onset.'
+            assert t0 <= min(infotable[timeCol]), 'Please make sure selection start time `t0` is of the same unit as provided under the \"Gen\" column.\nIf selection is set to start after the oldest samples are collected, please use `--force_t0` to allow omitting data preceding the selection onset.'
         # infoTable['Gen'] = np.array(np.array((infoTable['Gen']) - t0), dtype=int)
         # convert to generation
         infotable['Gen'] = (infotable[timeCol] - t0) / gen_time
@@ -174,8 +190,7 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
         if t0 is None:
             t0 = max(infotable[timeCol])
         elif not force_t0:
-            assert t0 >= max(infotable[
-                                 timeCol]), f'Please make sure selection start time `t0`={t0} is of the same unit as provided in the info table.\nIf selection is set to start after the oldest samples are collected, please use `--force_t0` to allow omitting data preceding the selection onset.'
+            assert t0 >= max(infotable[timeCol]), f'Please make sure selection start time `t0`={t0} is of the same unit as provided in the info table.\nIf selection is set to start after the oldest samples are collected, please use `--force_t0` to allow omitting data preceding the selection onset.'
         # convert to the number of generations
         infotable['Gen'] = (t0 - infotable[timeCol]) / gen_time
         # just in case
@@ -205,7 +220,8 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
             infoTable = _count_time_backward(infoTable, time_colname, t0)
     # if any column has "ago" in it
     else:
-        raise ValueError ("Please specify column in input that has information for sampling times using either --time_col or --time_ago_col0.\n")
+        raise ValueError(
+            "Please specify column in input that has information for sampling times using either --time_col or --time_ago_col0.\n")
     # elif np.any(np.array([ago_regex.search(name) for name in infoTable.columns], dtype=bool)):
     #     assert 'Gen_Ago' in infoTable.columns or 'Time_Ago' in infoTable.columns, \
     #         f'Column for sampling time unspecified. Current column names: {infoTable.columns}, gen_time={gen_time}.'
@@ -259,7 +275,7 @@ def read_info_file(infofile: str, ID_colname: str = 'ID', time_colname=None, gen
 
 
 def parse_grid_args(s2, lin_s2_range, geom_s2_range, s1, lin_s1_range, geom_s1_range, h, lin_h_range, geom_h_range,
-                    Ne):
+                    Ne, compute_llr):
     """return an ordered list of (s1, s2) tuples"""
     if s2 is not None:
         s2_list = list(map(float, s2.split(',')))
@@ -306,11 +322,144 @@ def parse_grid_args(s2, lin_s2_range, geom_s2_range, s1, lin_s1_range, geom_s1_r
     else:
         raise ValueError('Must provide value grid for either s1 or h.')
 
+    # check if we need (0,0), and if so, do we have it?
+    if compute_llr:
+        # we need it, so do we have the pair (0,0)?
+        if (not np.any(np.all(np.isclose(np.array(s_pairs), 0),axis=1))):
+            print ("(s1,s2) = (0,0) is not on the specified grid, but needed for computation of likelihood-ratios. Try increasing the number of points by 1, or use different grid boundaries.")
+            sys.exit()
+
     # s_pairs = itertools.product(s1_list.flatten(), s2_list)
     # make sure 1) no dups 2) sorted (if s1_list and s2_list doesn't have dup, pairs shouldn't have dup either
     num_pairs = len(s_pairs)
     print(f'Computing log-likelihoods for {num_pairs} pairs of (s1, s2) values.')
     return s1_list, s2_list, s_pairs, num_pairs
+
+
+int_regex = re.compile(r'[^\.](\d+)')
+num_regex = re.compile(r'\d+\.?\d*')
+frac_regex = re.compile(r'([0]{0,1}\.\d+)')
+float_regex = re.compile(r'\d+\.?\d*e?\d*')
+
+
+def _format_to_dotless_e(number):
+    # Format the number in "e" notation and convert it to a float
+    formatted_number = "{:e}".format(float(number))
+    # exponent = float(formatted_number.split("e")[1])
+    e_part1, e_part2 = formatted_number.split("e")
+    # remove zeros at the end:
+    e_part2 = int(e_part2)
+    if number >= 1:
+        while not np.isclose(float(e_part1) - int(e_part1.split(".")[0]), 0):
+            part1_update = float(e_part1) * 10
+            e_part2 -= 1
+            e_part1 = str(part1_update)
+        # print(e_part1, e_part2)
+        # only look at integer part
+        while e_part1.endswith("0"):
+            e_part1 = e_part1[:-1]
+            e_part2 -= 1
+            # print(e_part1, e_part2)
+    else:
+        # only look at decimal part
+        while e_part1.startswith("0"):
+            e_part1 = e_part1[1:]
+            e_part2 += 1
+            # print(e_part1, e_part2)
+    # Convert the number to an integer to remove the decimal point and trailing zeros
+    # formatted_integer = int(float(e_part1))
+    return "{:d}e{:d}".format(int(float(e_part1)), int(e_part2) + 1)
+
+
+def filter_snps(Samples, K, n_max, minK, missingness: float, minMAF: float, chroms=None, pos_arg=None):
+    """Remove loci whose data don't pass the filters. Input: allelic count matrix"""
+    sample_cols = [f'd{i}' for i in range(1, (K + 1))]
+    size_cols = [f'n{j}' for j in range(1, (K + 1))]
+    tag = ''
+
+    ## parse chrom
+    if chroms is not None:
+        Chroms = chroms.split(',')
+        Chroms = [str(c) for c in Chroms if len(c) > 0]
+        Samples = Samples[Samples.Chr.astype(str).isin(Chroms)]
+        print(f'Keeping {Samples.shape[0]} SNPs on chromosome(s) {Chroms}')
+        tag += f'_chr{chroms}'
+    else:
+        Chroms = None
+    ## then position
+    if pos_arg is not None:
+        assert (len(Samples.Chr.values) == 1) or (Chroms is not None), f'Chroms: {Chroms}, position range {pos_arg}'
+        numbers = float_regex.findall(pos_arg)
+        if len(numbers) == 2:
+            left_pos, right_pos = sorted([float(p) for p in numbers])
+            # pos_range = (left_pos, right_pos)
+            tag += f'_{_format_to_dotless_e(left_pos)}-{_format_to_dotless_e(right_pos)}'
+        elif len(numbers) == 1:
+            # need to tell which one
+            assert "-" in pos_arg, pos_arg
+            pos_range = pos_arg.split("-")
+            if int_regex.search(pos_range[0]):
+                left_pos = int(float(pos_range[0]))
+                right_pos = None
+            elif int_regex.search(pos_range[1]):
+                left_pos = None
+                right_pos = int(float(pos_range[1]))
+            else:
+                print(f'cannot parse the position flag: {pos_arg}.')
+                sys.exit(1)
+            # pos_range = (left_pos, right_pos)
+        else:
+            print(f'cannot parse the position flag: {pos_arg}.')
+            sys.exit(1)
+        before = Samples.shape[0]
+        Samples = Samples[(Samples.physPos >= left_pos) & (Samples.physPos <= right_pos)]
+        after = Samples.shape[0]
+        print(f'Keeping {after} SNPs (from {before}) positioned between {int(left_pos)} to {int(right_pos)}')
+
+    assert np.all(np.array(Samples[sample_cols]) <= np.array(Samples[size_cols]))
+    Samples.loc[:, 'pooled_d'] = Samples.loc[:, sample_cols].sum(axis=1)
+    Samples.loc[:, 'pooled_n'] = Samples.loc[:, size_cols].sum(axis=1)
+
+    ## now check out number of times observed
+    if minK > 0:
+        Samples['times_obs'] = (Samples[size_cols] > 0).sum(axis=1)
+        before = Samples.shape[0]
+        Samples = Samples[Samples.times_obs >= minK]
+        after = Samples.shape[0]
+        print(f'Remove {before - after} SNPs with <{minK} times/pools of observations. {after} SNPs left.')
+        tag += f'_minK{minK:d}'
+
+    # filter for missingness <--- float in (0, 1)
+    before = Samples.shape[0]
+    # print(Samples.pooled_n.dtype)
+    Samples = Samples[(Samples.pooled_n > missingness * sum(n_max))]
+    tag += f'_minObs{missingness:g}'
+    after = Samples.shape[0]
+    print(f'{after} SNPs (out of {before}) passed missingness filter (:= pooled_n > sum(n_max)*{missingness:g} ).')
+
+    ## lastly: MAF ##<---May be redundant here
+    assert 0 <= minMAF < 0.5, f'Invalid minor allele frequency cutoff: {minMAF}'
+    tag += f'_MAF{str(minMAF)[1:]}'
+    # get maf
+    Samples.loc[:, 'pooled_d'] = Samples.pooled_d.where(
+        Samples.pooled_d.copy() <= 0.5 * Samples.pooled_n.copy(),
+        (Samples.pooled_n.copy() - Samples.pooled_d.copy()))
+    before = Samples.shape[0]
+    Samples = Samples[Samples.pooled_n > 0]
+    after = Samples.shape[0]
+    print(f'Remove {before - after} sites with zero samples')
+    ## actual MAF filter
+    before = Samples.shape[0]
+    Samples['pooledMAF'] = Samples.pooled_d / Samples.pooled_n  # .replace(0, np.nan) <-- there shouldn't be n=0 anymore
+    Samples = Samples[Samples.pooledMAF > minMAF]
+    after = Samples.shape[0]
+    print(f' Remove {before - after} SNPs whose pooled MAF <= {minMAF}. {after} left.')
+    # remove aux column?
+    Samples = Samples.drop(columns=['pooled_d', 'pooled_n'])
+
+    # done going through all filter args, return df
+    ## exclude the "_" at the beginning of the tag
+    return Samples, tag[1:]
 
 
 import argparse
@@ -320,9 +469,9 @@ def lik_args_parser(parser):
     # some pop gen parameters
     param = parser.add_argument_group('Population Parameters')
     param.add_argument('--u01', dest='u01', default=None, required=('--read_LL_from' not in sys.argv), type=float,
-                       help="Forward mutation rate (/site/generation).")
+                       help="Mutation rate allele 0 to allele 1 (/site/generation).")
     param.add_argument('--u10', dest='u10', default=None, type=float,
-                       help='Backward mutation rate (/site/generation). Default to be equal to u01.')
+                       help='Mutation rate allele 1 to allele 0 (/site/generation). Default to be equal to u01.')
     param.add_argument('--Ne', dest='Ne', default=None, required=('--read_LL_from' not in sys.argv), type=float,
                        help='Effective diploid population size (i.e., total #(allele)=2Ne ).')
     param.add_argument('--gen_time', dest='gen_time', default=1, type=float,
@@ -342,9 +491,6 @@ def lik_args_parser(parser):
     vcfs.add_argument('--info', dest='infoFile', required=('--vcf' in sys.argv),
                       help='Path and name of the annotation file. Must be tab-delimited and '
                            'contain at least columns (\"ID\", \"Gen_Ago\") or (\"ID\", \"Time_Ago\") or (\"ID\", \"Gen\")')
-    # vcfs.add_argument('--pseudo_hap', dest='pseudo', action='store_true', default=False,
-    #                   help='Indicate whether the vcf files are for samples called as pseudo haplotypes.')
-    # IDs_regex = re.compile(r',?(\w+),?')
     vcfs.add_argument('--ID_col', dest='IDcolName', default='ID',
                       help='Name of the column in info table for ID names of the sample (as shown in VCF). Default is \"ID\".')
     vcf_time = vcfs.add_mutually_exclusive_group()
@@ -360,20 +506,41 @@ def lik_args_parser(parser):
     vcfs.add_argument('--force_dip', dest='forced_dips', default='all',
                       # type=lambda x: x in {'all', 'none'} or len(IDs_regex.findall(x)) > 0,
                       help='Comma-separated string or a plain-text file that lists samples IDs (separated by comma) to be considered as diploids even though some may have loci with only haplotype calls. If \"all\", all samples will be considered as diploids, whose haploid GTs will be counted as matching homozygote diploid GTs (i.e. double-count the allele). Default is \"hybrid\".')
+    vcfs.add_argument('--chr', '-c', dest='chrom', default=None,
+                      help='Name(s) of the chromosome(s) to extract SNPs from. Must match values in the VCF. '
+                           'Default is to ignore chromosome ID.')
+    vcfs.add_argument('--pos', dest='posRange',
+                      help='Range of physical positions (\"<from>-<to>\") to consider on the proposed'
+                           ' chromosome. Default is to include all qualifying SNPs in the VCF.')
 
     parsedInputs = parser.add_argument_group('For parsed allele counts (choose one)')
+    # parsedInputs.add_argument('--chrom_col', dest='chr_col', default=None,
+    #                           help='(Optional) Name of the column in the allele count file for chromosomes.')
+    # parsedInputs.add_argument('--pos_col', dest='pos_col', default=None,
+    #                           help='(Optional) Name of the column in the allele count file for physical positions.')
+    # parsedInputs.add_argument('--snp_col', dest='snp_col', default=None,
+    #                           help='(Optional) Name of the column in the allele count file for variant IDs.')
+
     sampTimeArgs = parsedInputs.add_mutually_exclusive_group(required=(('-i' in sys.argv) or ('--input' in sys.argv)))
     sampTimeArgs.add_argument('--sample_times', dest='sampleTimes', default=None,
                               help='Specify the time (ascending, from ancient to recent) of the same unit (e.g., generations, years, weeks, etc.) when each pool of samples were taken. Must be positive numbers. Format: \"<t1>,<t2>,...,<tk>\". Number of time points must match the number of sample pools.')
     sampTimeArgs.add_argument('--sample_times_ago', dest='sampleTimes_ago', default=None,
                               help='Specify the time before present (descending, from ancient to recent) of the same unit (e.g., generations, years, weeks, etc.) when each pool of samples were taken. Format: \"<t1>,<t2>,...,<tk>\". Number of time points must match the number of sample pools.')
 
-    inputOpt = parser.add_argument_group('Input Options')
+    inputOpt = parser.add_argument_group('Input Filtering Options')
     inputOpt.add_argument('--snps', dest='snp_subset', default=None,
                           help='Comma-separated string or a plain-text file that lists a subset of variant IDs (among those included in the input file) to consider.')
     inputOpt.add_argument('--minMAF', dest='MAF', type=float, default=0.,
                           help='Minimum threshold (non-inclusive) for minor allele frequencies in the pooled samples. '
                                'SNPs with sub-threshold frequencies will not be considered for analyses.  Default is 0.')
+    missingness = inputOpt.add_mutually_exclusive_group()
+    missingness.add_argument('--max_missing', dest='maxMissing', type=float, default=1.,
+                             help='For each SNP, the max allowed proportion of samples to have missing data.')
+    missingness.add_argument('--min_observed', dest='minObs', type=float, default=0.,
+                             help='For each SNP, the min allowed proportion of samples to have valid observations (not missing).')
+    inputOpt.add_argument('--minK', dest='minK', default=0, type=int,
+                          help='For each SNP, the minimal number of time points to have non-zero observations in.')
+
     # initial conditions
     initConds = parser.add_argument_group('Initial Condition')
     initConds.add_argument('--init', dest='initCond', required=('--read_LL_from' not in sys.argv),
@@ -385,24 +552,24 @@ def lik_args_parser(parser):
                            help='Required when --init=\"initFreq\". Specify the allele frequency when selection started.')
 
     initConds.add_argument('--t0', dest='t0', default=None, type=float,
-                           help='The time point (in generations) when selection starts. Default is the earliest sampling time.')
+                           help='The time point (in generations) when initial distribution is assumed and selection starts. Default is the first sampling time. IMPORTANT: This is interpreted the same way as the specified sampling times. Thus, if --sample_times or --time_col is used, this time is regular (forward), whereas with --sample_times_ago or --time_ago_col, this is time before present (backward). ')
     # 'Only applies when selection starts from de-novo mutations and initial condition is \"initFreq\". For selection on standing variation, consider `--piecewise` option.'
     initConds.add_argument('--force_t0', dest='force_t0', default=False, action='store_true',
                            help='Option to force implement a t0 later than the earliest samples. Data prior to t0 will be ignored.')
     initConds.add_argument('--init_u01', dest='init_u01', type=float,  # required=('statBetaSel' in sys.argv),
                            default=None,
-                           help='Specify forward mutation rate for the stationary distribution \"statBeta\". Default to be identical to u01.')
+                           help='Specify mutation rate allele 0 to allele 1 for the initial distribution \"statBeta\". Default to be identical to u01.')
     initConds.add_argument('--init_u10', dest='init_u10', type=float,  # required=('statBetaSel' in sys.argv),
                            default=None,
-                           help='Specify backward mutation rate for the stationary distribution. Default to be identical to u10.')
+                           help='Specify mutation rate allele 1 to allele 0 for the initial distribution. Default to be identical to u10.')
 
     # piecewise
     # read the file that specify which one to optimize
     optional = parser.add_argument_group("Optional Mode(s)")
     optional.add_argument('--piecewise', dest='piecewise', action='store_true', default=False,
-                          help='Option to assume changing selection coefficients and choose the time period when they vary (by the grid specified).\nIf selected, user must provide an additional text file, using \"--specify_piece\", to specify which period to vary [s].')
+                          help='Assume different selection coefficients in different periods. If selected, user must provide additional text file, using \"--specify_piece\", to specify in which period to vary [s] (and compute likelihooods on the given grid).')
     optional.add_argument('--specify_piece', dest='specify_piece', default=None, required=('--piecewise' in sys.argv),
-                          help='Path and name to the helper file when \"--piecewise\" is selected. It should be tab-delimited with 4 columns, using \"x\" to indicate the coefficients to vary in the matching time period:\n <from (forward gen#>\t<to (forward gen#>\t>\t<s1>\t<s2> ')
+                          help='Name of the file specifying selection periods when \"--piecewise\" is selected. It should be tab-delimited with 4 columns, using \"x\" instead of s1 and s2 to indicate the coefficients to vary in the respective time period:\n <from (forward gen#>\t<to (forward gen#>\t>\t<s1>\t<s2> ')
 
     # customize grids
     grid = parser.add_argument_group('Parameter Grids (specify s2 and [s1 | h])')
@@ -434,15 +601,15 @@ def lik_args_parser(parser):
     outputs.add_argument('-o', '--out_prefix', required=True, dest='outPrefix',
                          help='Path and prefix of the output file.')
     outputs.add_argument('--long_LL_table', dest="long_table", action="store_true",
-                         help="Option to write out the computed loglikelihood surfaces to a plotting-friendly table with columns \"locus, s1, s2, log-likelihood\", instead of matrices.")
+                         help="Option to write out the computed loglikelihood surfaces to a plotting-friendly table with columns \"id, s1, s2, log-likelihood\", instead of matrices.")
     outputs.add_argument('--gzip_surface', dest='zip_output', action='store_true',
                          help='Option to output the .gz file of computed likelihoods.')
     outputs.add_argument('--get_on_grid_max', dest='onGrid_max', action="store_true", default=False,
-                         help='Option to output on-grid max log-likelihood and the matching (s1, s2) values among all values computed on each given locus, as `{PREFIX}_on-grid_maxLLs.txt`.')
+                         help='Option to output on-grid max log-likelihood and the matching (s1, s2) values among all values computed on each given dataset, as `{PREFIX}_on-grid_maxLLs.txt`.')
     outputs.add_argument('--get_off_grid_max', dest='interpolate_max', action='store_true', default=False,
                          help='Option to interpolate the computed grid (must be at least 5x5) and infer local maximum likelihoods, written to file `{PREFIX}_off-grid_maxLLs.txt`.')
     outputs.add_argument('--get_MLR', dest='get_MLR', default=False, action='store_true',
-                         help='Option to write out the max-loglikelihood ratios relative to neutrality, i.e. 2(LL_opt - LL_0), for each locus, along side with the maximized log-likelihoods. ')
+                         help='Option to write out the max-loglikelihood ratios relative to neutrality, i.e. 2(LL_opt - LL_0), for each datset, along side with the maximized log-likelihoods. ')
     outputs.add_argument('--get_chi2_pval', dest='get_pval', default=False, action='store_true',
                          help='Option to write out the p-value of MLR in a standard chi-square distribution (df=1).')
 
@@ -461,8 +628,7 @@ def main(DL_args=None):
     parser = argparse.ArgumentParser(
         prog='DiploLocus_likelihood.py',
         # usage='%(prog)s [-h] (args for Population Parameter) (args for Input) (args for Grid of selection coefficients) (args for Output) (args for Initial Condition) [args for HMM parameters]',
-        description='Light-weight toolkit for the inference of diffusion-based diploid selection on independent loci from time-stratified allele frequencies.',
-        epilog='https://github.com/bioXiaoheng/diplo_locus'
+        description='Light-weight toolkit for the inference of diffusion-based diploid selection on independent loci from time-stratified allele frequencies.'
     )
 
     lik_parser = lik_args_parser(parser)
@@ -514,9 +680,11 @@ def main(DL_args=None):
         grid_args_set = set(grid_args)
         if len(grid_args_set) > 1 or grid_args_set != {None}:
             # generate grid from args
+            compute_llr = (args.get_pval or args.get_MLR)
             s1_list, s2_list, s_pairs, num_pairs = parse_grid_args(args.s2, args.lin_s2_range, args.geom_s2_range,
                                                                    args.s1, args.lin_s1_range, args.geom_s1_range,
-                                                                   args.h, args.lin_h_range, args.geom_h_range, args.Ne)
+                                                                   args.h, args.lin_h_range, args.geom_h_range, args.Ne, compute_llr)
+
             try:
                 # specified grids must match what's pre-computed
                 assert np.all(np.isclose(s1_list, s1_list_read)) and np.all(np.isclose(s2_list,
@@ -551,29 +719,50 @@ def main(DL_args=None):
             s1_list, s2_list, s_pairs, num_pairs = s1_list_read, s2_list_read, s_pairs_read, num_pairs_read
     else:
         # generate grid
+        compute_llr = (args.get_pval or args.get_MLR)
         s1_list, s2_list, s_pairs, num_pairs = parse_grid_args(args.s2, args.lin_s2_range, args.geom_s2_range,
                                                                args.s1, args.lin_s1_range, args.geom_s1_range,
-                                                               args.h, args.lin_h_range, args.geom_h_range, args.Ne)
+                                                               args.h, args.lin_h_range, args.geom_h_range, args.Ne, compute_llr)
         # print(f's1_list={s1_list}\ns2_list={s2_list}\ns_pairs={s_pairs}.')
         notes += f'## Analyze {num_pairs} pairs of sel. coef.\n'
 
         # get input
+        ## obtain locus_names, samples, sampleSizes, num_time_points, n_max
         if args.infile is not None:
+            # sanity check: if --pos or --chr args provided, column names must be provided too
+            if args.posRange is not None:
+                assert args.pos_col is not None, f'For allele count input, must provide name of the position column' \
+                                                 f'before specifying `--pos_arg` to subset variants.'
+            if args.chrom is not None:
+                assert args.chr_pol is not None, f'For allele count input, must provide name of the chromosome column' \
+                                                 f'before specifying `--chr` to subset variants.'
             print(time.ctime(), f'\nLoading parsed allele counts from {args.infile}.')
             notes += f'## allele counts from {args.infile}\n'
-            # parse snps
+            # parse snps / define snp_list
             if args.snp_subset is not None:
                 snp_list = parse_ind_arg(args.snp_subset)
                 notes += f'## {len(snp_list)} loci from `--snps`'
             else:
                 snp_list = None
-            locus_names, samples, sampleSizes = parse_allele_counts(args.infile, snp_list, minMAF=args.MAF)
+            # parse the counts. minMAF removed for later
+            ## `locus_names` would be the snpID col, "locus" col, chr_pos cols, or all id_cols concatenated
+            # locus_names, samples, sampleSizes = parse_allele_counts(args.infile, snp_list,  # minMAF=args.MAF,
+            #                                                         chr_col=args.chr_col, pos_col=args.pos_col,
+            #                                                         snpID_col=args.snp_col)
+            locus_names, samples, sampleSizes = parse_allele_counts(args.infile, snp_list)
+
             # sample times must be provided
-            sampleTimes, sample_cols_toKeep = parse_sampling_times(args.sampleTimes, args.sampleTimes_ago,
+            num_sample_batches = samples.shape[1]
+            sampleTimes, sample_cols_toKeep = parse_sampling_times(num_sample_batches, args.sampleTimes, args.sampleTimes_ago,
                                                                    args.gen_time, args.t0, args.force_t0)
             num_time_points = len(sampleTimes) - 1
+            print (samples)
+            print (sample_cols_toKeep)
+            print (sampleTimes)
             # crop samples & sampleSizes too
             samples, sampleSizes = samples[:, sample_cols_toKeep], sampleSizes[:, sample_cols_toKeep]
+            # get max sample size for each SNP
+            n_max = sampleSizes.max(axis=0)
         else:
             # sanity check
             assert args.vcfFile is not None, TypeError('Please provide an input file.')
@@ -627,7 +816,7 @@ def main(DL_args=None):
 
             # parse vcf
             print(f'Loading variant counts from {args.vcfFile}...')
-            # the `trimmedSampleTimes` here already have 0 added too
+            ## the `trimmedSampleTimes` here already have 0 added too
             locus_names, samples, sampleSizes, keptSampleTimes = parse_vcf_input(
                 args.vcfFile,
                 sampleIDPools,
@@ -650,7 +839,62 @@ def main(DL_args=None):
                 num_time_points = len(keptSampleTimes) - 1
                 sampleTimes = keptSampleTimes
 
-        # decide emission type & prep relevant args
+            # get max sample size for each SNP
+            n_max = [len(pool) for pool in sampleIDPools]
+
+        # make Samples dataFrame for filtering
+        # print(K, samples.shape)
+        samples_df = pd.DataFrame(samples, columns=[f'd{i}' for i in range(1, num_time_points + 1)], dtype=int)
+        samples_df['locus_name'] = locus_names
+        if args.vcfFile is not None:
+            split_names = samples_df.loc[:, 'locus_name'].apply(_split_locus_name)
+            # print(type(split_names), split_names.shape, split_names[:5])
+            samples_df['Chr'], samples_df['physPos'], samples_df['rsID'] = zip(*split_names)
+            samples_df.physPos = samples_df.physPos.astype(int)
+            leading_cols = ["locus_name", "Chr", "physPos", "rsID"]
+        else:
+            leading_cols = ["locus_name"]
+            # if (args.chr_col is not None) and (args.pos_col is not None):
+            #     split_names = samples_df.loc[:, 'locus_name'].apply(_split_locus_name)
+            #     # print(type(split_names), split_names.shape, split_names[:5])
+            #     samples_df['Chr'], samples_df['physPos'], samples_df['rsID'] = zip(*split_names)
+            #     samples_df.physPos = samples_df.physPos.astype(int)
+            #     leading_cols = ["locus_name", "Chr", "physPos"]
+
+        # print(samples_df.shape)
+        sampleSizes_df = pd.DataFrame(sampleSizes, columns=[f'n{i}' for i in range(1, num_time_points + 1)])
+        # print(sampleSizes_df.shape)
+        # merge the two
+        Samples = pd.concat([samples_df, sampleSizes_df], axis=1)
+        # print(Samples.shape)
+        # reorder the columns
+        allele_count_header = ([''] * int(2 * num_time_points))
+        allele_count_header[::2] = [f'd{i}' for i in range(1, num_time_points + 1)]
+        allele_count_header[1::2] = [f'n{i}' for i in range(1, num_time_points + 1)]
+
+        Samples = Samples[leading_cols + allele_count_header]
+
+        # filter snps
+        ## define missingness as the proportion left / not missing
+        missingness = max([1 - args.maxMissing, args.minObs])
+        print('args.maxMissing=', args.maxMissing, '\nminObserved=', args.minObs,
+              '\nmissingness=', missingness)
+        ## assert 0 <= args.minMissing <= args.maxObs, f'Invalid (lower={args.minMissing}, upper={args.maxObs}) bound for missingness'
+        ## `missingness` be a tuple of 2 float
+        filteredSamples, snp_tag = filter_snps(Samples, num_time_points, n_max, minK=args.minK, missingness=float(missingness),
+                                               minMAF=args.MAF, chroms=args.chrom, pos_arg=args.posRange)
+        ## num_time_points will not be updated bc filter_snps doees not remove empty columns (to match sample times)
+        ## hence this sanity check
+        assert filteredSamples.shape[1] >= (len(leading_cols) + 2 * num_time_points), \
+            f'filteredSamples.shape[1]={filteredSamples.shape[1]}, num_time_points={num_time_points}. ' \
+            f'filteredSamples.columns: {filteredSamples.columns}'
+        print(f'Variants after filtering:\n{filteredSamples}')
+        # update key variables
+        samples = np.array(filteredSamples.loc[:, allele_count_header[::2]])
+        sampleSizes = np.array(filteredSamples.loc[:, allele_count_header[1::2]])
+        locus_names = filteredSamples.locus_name
+
+        # Decide emission type & prep relevant args
         samples_int = np.allclose(np.array(samples, dtype=float) - np.array(samples, dtype=int), 0)
         sampleSizes_int = np.allclose(np.array(sampleSizes, dtype=float) - np.array(sampleSizes, dtype=int), 0)
         # current implementation only supports int sample sizes:#
@@ -679,10 +923,11 @@ def main(DL_args=None):
         assert samples.shape[1] == len(sampleTimes) - 1, f'samples.shape={samples.shape}:{sampleSizes};\n ' \
                                                          f'len(sampleTimes)={len(sampleTimes)}: {sampleTimes}'
         maxSampleSizes = np.apply_along_axis(max, axis=0, arr=sampleSizes)
-        print(
-            f'Computing likelihoods for {numsites} loci at {num_time_points} time points: {", ".join(map(str, sampleTimes[1:]))}\n\tMax sample sizes at each time: {", ".join(map(str, maxSampleSizes))}')
+        print(f'Computing likelihoods for {numsites} loci at {num_time_points} time points: '
+              f'{", ".join(map(str, sampleTimes[1:]))}\n##    Max sample sizes at each time:'
+              f' {", ".join(map(str, maxSampleSizes))}')
         #: {sampleTimes[1:]} generations.
-        notes += f'## Computing likelihoods for {numsites} loci at {num_time_points} time points: {", ".join(map(str, sampleTimes[1:]))}\n## \tMax sample sizes at each time: {", ".join(map(str, maxSampleSizes))}\n'
+        notes += f'## Computing likelihoods for {numsites} loci at {num_time_points} time points: {", ".join(map(str, sampleTimes[1:]))}\n##    Max sample sizes at each time: {", ".join(map(str, maxSampleSizes))}\n'
 
         # need to do this again now that sampleSizes updated
         sampleSizeSet = set(sampleSizes.flatten())
@@ -758,7 +1003,9 @@ def main(DL_args=None):
 
         # write output
         outputDF = pd.DataFrame(LLmatrix, columns=s_pairs)  # , index=locus_names
-        outputDF['ID'] = locus_names  # outputDF.index
+        # outputDF['ID'] = locus_names  # outputDF.index
+        # outputDF['ID'] = np.array(locus_names).reshape(numsites, 1)  # outputDF.index
+        outputDF['ID'] = np.array(locus_names)  # outputDF.index
         if args.long_table:
             outputDF = outputDF.melt(id_vars='ID', var_name='s_pair', value_name='loglikelihood')
             outputDF['s1'], outputDF['s2'] = zip(*outputDF.s_pair)
@@ -794,7 +1041,8 @@ def main(DL_args=None):
         maxLLs, header = interpolate_offGrid_max(s1_list, s2_list, s_pairs, num_pairs, LLmatrix)
         # see if MLRs are needed
         if get_MLR:
-            neutLL = LLmatrix[:, s_pairs.index((0, 0))]
+            neutralIdx = np.where(np.all(np.isclose(np.array(s_pairs), 0),axis=1))[0][0]
+            neutLL = LLmatrix[:, neutralIdx]
             MLRs = (maxLLs[:, -1] - neutLL) * 2
             maxLLs = np.hstack((maxLLs, MLRs.reshape(numsites, 1)))
             header += '\tMLR'
@@ -812,7 +1060,7 @@ def main(DL_args=None):
         maxLLs = np.hstack((np.array(locus_names).reshape(numsites, 1), maxLLs))
         # write output
         maxLL_filename = args.outPrefix + '_off-grid_maxLLs.txt'
-        np.savetxt(maxLL_filename, maxLLs, header=(notes + header), delimiter='\t', fmt='%s')
+        np.savetxt(maxLL_filename, maxLLs, header=(notes + header), delimiter='\t', fmt='%s', comments='')
         # no need to output a separate file for it
         if write_onGrid_max:
             print('On-grid max are already included in the `_off-grid_maxLLs.txt` output file.')
@@ -825,14 +1073,15 @@ def main(DL_args=None):
         numsites = len(locus_names)
         # see if MLRs are needed
         if args.get_MLR:
-            neutLL = LLmatrix[:, s_pairs.index((0, 0))]
+            neutralIdx = np.where(np.all(np.isclose(np.array(s_pairs), 0),axis=1))[0][0]
+            neutLL = LLmatrix[:, neutralIdx]
             MLRs = (maxLLs[:, -1] - neutLL) * 2
             maxLLs = np.hstack((maxLLs, MLRs.reshape(numsites, 1)))
             header += '\tMLR'
-        maxLLs = np.hstack((locus_names.reshape(numsites, 1), maxLLs))
+        maxLLs = np.hstack((np.array(locus_names).reshape(numsites, 1), maxLLs))
         # write output
         maxLL_filename = args.outPrefix + '_on-grid_maxLLs.txt'
-        np.savetxt(maxLL_filename, maxLLs, header=(notes + header), delimiter='\t', fmt='%s')
+        np.savetxt(maxLL_filename, maxLLs, header=(notes + header), delimiter='\t', fmt='%s', comments='')
 
     print(time.ctime(), 'Done.')
 

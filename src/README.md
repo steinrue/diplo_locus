@@ -2,12 +2,12 @@
 
 ### Table of Contents
 
-  * [`diffusion_core` library](#diffusion_core)
-  * [`likelihood` library](#likelihood)
+  * [`diffusion_core` module](#diffusion_core)
+  * [`likelihood` module](#likelihood)
     * [class `SelHmm`](#likelihood.SelHmm)
-      * [Usage](#SelHmm.init) 
-      * [Function](#SelHmm.compute)
-  * [`simulate` library](#simulate)
+      * [Constructor](#SelHmm.init) 
+      * [Compute likelihood](#SelHmm.compute)
+  * [`simulate` module](#simulate)
 
 
 -----------------------------------------------
@@ -32,13 +32,13 @@ A `SelHmm` object construct a diploid Wright-Fisher diffusion HMM, configures it
 compute log-likelihoods of samples observed under the presumed parameters.
 
 <a id="SelHmm.init"></a>
-### Usage
+### Constructor
 ```python
 >>> SelHmmObject = likelihood.SelHmm(Ne, s1, s2, mAlpha, mBeta, initCond, initFreq=None,
                                       initMAlpha=None, initMBeta=None, initS1=None, initS2=None,
                                       sampleSizesSet=None, numStates=1001, deltaT=1, 
                                       emissionType="integer", transitionType="constant", 
-                                      selectionChangeTimes=None)
+                                      selectionChangeTimes=None, selectionGridObject=None)
 ```
 
 <details>
@@ -129,10 +129,14 @@ compute log-likelihoods of samples observed under the presumed parameters.
 `
    Set the generation time when selection coefficients change. Must match the length of `allS1` and `allS2`.
 
+- **`selectionGridObject`** `int or array_like` `optional
+`
+   Experimental, do not change.
+
  </details>
 
 <a id="SelHmm.compute"></a>
-### Function
+### Compute likelihood
 
 #### `likelihood.SelHmm.computeLogLikelihood()`
 
@@ -151,19 +155,19 @@ Note that this model assumes all loci are independent and bi-allelic.
 - **`times`** `array_like
 `
 
-The generation times when the samples were taken. Must start with zero and ascend from fast to present.
+The generation times when the samples were taken. Must start with zero and ascend from past to present.
 
 - **`samplesSizes`** `array_like
 `
 
    An N by K matrix of the total numbers of alleles observed, *i.e.* sample sizes.
-    N --> number of loci ;  K --> number of sampling times.
+    N --> number of loci/replicates ;  K --> number of sampling times.
     ``sampleSizes[i,j]`` records the sample size of locus ``i`` at time point ``j``.
 
 - **`samples`** `array_like
 `
 
-   An N by K matrix of the numbers of alleles. N --> number of loci ;  K --> number of sampling times.
+   An N by K matrix of the numbers of alleles. N --> number of loci/replicates ;  K --> number of sampling times.
     ``samples[i,j]`` records the number of a particular allele on locus ``i`` at time point ``j``.
 
 #### Returns
@@ -183,9 +187,10 @@ Python library for functions to perform simulations under a Wright-Fisher diffus
 
 ```python
 >>> samples, trajectories = simulate.simulateSamples(Ne, allS1, allS2, mAlpha, mBeta,
-                                                     times, sampleSizes, numReplicates,
-                                                     initCond, seed, deltaT,
-                                                     selectionChangeTimes=None)
+                                             times, sampleSizes, seed, initCond=None, initFreq=None,
+                                             numReplicates=1, deltaT=0.05, condInitSeg=True,
+                                             initGridResolution=None, initProbs=None,initValues=None,
+                                             initMAlpha=None, initMBeta=None, selectionChangeTimes=None)
 ```
 
 The `simulate.computeSamples()` function takes relevant population genetic parameters and simulates time-stratified samples of independent loci and reports the allele frequency trajectories of simulated loci.
@@ -284,7 +289,7 @@ The `simulate.computeSamples()` function takes relevant population genetic param
 - **`selectionChangeTimes`** `int or array_like` `optional`
 
    Set the generation time when selection coefficients change. Must match the length of `allS1` and `allS2`.
-- 
+
 #### Returns
 
 

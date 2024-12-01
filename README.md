@@ -4,11 +4,11 @@
 
 # `diplo-locus`: A lightweight toolkit for inference and simulation of time-series genetic data under general diploid selection
 
-This repository hosts Python CLI tool (`DiploLocus`) and python package (`diplo_locus`) for simulating and computing log-likelihoods for time series genetic data based on the diploid Wright-Fisher diffusion.
+This repository hosts a Python CLI tool (`DiploLocus`) and python package (`diplo_locus`) that can be used to compute log-likelihoods for time series genetic data based on the diploid Wright-Fisher diffusion, as well as simulate such data.
 
 To cite our application, use the reference:
 
->   Cheng, X. and Steinruecken, M. (2023) diplo-locus: A lightweight toolkit for inference and simulation of time-series genetic data under general diploid selection. bioarxiv: https://doi.org/10.1101/2023.10.12.562101
+>   Cheng, X. and Steinruecken, M. (2023) diplo-locus: A lightweight toolkit for inference and simulation of time-series genetic data under general diploid selection. https://doi.org/10.1101%2F2023.10.12.562101
 
 --------------------
 
@@ -17,7 +17,7 @@ To cite our application, use the reference:
 <a id="toc"> </a>
 
  * [Getting Started](#setup)
- * [`DiploLocus` Command-line tool](#CLI)
+ * [`DiploLocus` Command-line interface](#CLI)
    * [`likelihood` Mode](#likelihood_CLI)
 
       <details><summary>Computing likelihood with CLI</summary>
@@ -30,8 +30,6 @@ To cite our application, use the reference:
         * [Output](#LL_output)
           * [Log-likelihood surfaces](#LL_likelihood)
           * [Interpolated local max log-likelihoods](#interp)
-        * [Discrete time-varying selection](#LL_piece)
-        * [Examples](#exLL)
     
       </details>
     
@@ -40,42 +38,23 @@ To cite our application, use the reference:
 
         * [Quick Guide](#quickSim)
         * [Input and Output](#sim_IO)
-        * [Simulate discrete time-varying selection](#sim_piece)
       </details>
  
- * [`diplo_locus` package](https://github.com/steinrue/diplo_locus/blob/main/src/README.md)
- * [Examples](https://github.com/steinrue/diplo_locus/blob/main/examples/README.md)
+ * [`diplo_locus` package API](src/README.md)
+ * [Examples](examples/README.md)
 
 ------------------------------------------------------------------------
 # Getting Started
 <a id="setup"> </a>
 
-The CLI scripts are designed to work in a unix shell-based command line working environment (such as Linux, MacOS, or Windows Sub-Linux system). 
+The CLI tools are designed to work in a unix shell-based command line working environment (such as Linux, MacOS, or Windows Sub-Linux system). 
 
-### Install with `pip` 
+### Install with `pip` from `github.com`
 
-Both the API and CLI are included in the PyPI package `diplo-locus`. To install:
+Both the API and CLI can be installed from the github repository using:
 
 ```shell
-pip install diplo-locus
-```
-
-### Install from GitHub
-
-To install the latest version, the user can download the GitHub repository with
- 
-```shell
-git clone https://github.com/steinrue/diplo_locus.git
-cd diplo_locus/
-```
-
- Both the CLI scripts and function package are in Python3 and require at least Python3.8 to run. To install the package in your system, stay in the same directory, use
-```shell
-pip install .
-```
-or
-```shell
-python setup.py install
+pip install "git+https://github.com/steinrue/diplo_locus@v1.2.0"
 ```
 
 ------------------------------------
@@ -83,7 +62,7 @@ python setup.py install
 # `DiploLocus` Command-line tool
 <a id="CLI"> </a>
 
-Once set up is complete, running the main CLI script without arguments or with `-h` argument would print out
+Once set up is complete, running the main CLI tool without arguments or with `-h` argument will print out
 ```shell
 DiploLocus
 #usage: DiploLocus [-h]  ...
@@ -109,13 +88,13 @@ DiploLocus
  
 ### Quick Guide 
   <a id="quickLL">  </a>
-Indicating `likelihood` to the main CLI script would call `DiploLocus_likelihood.py`, which by itself is also fully functional (with `diplo_locus` package installed). In other words, the commands below are equivalent.
+Indicating `likelihood` to the main CLI tool or calling `DiploLocus-likelihood` directly can be used to compute likelihood of temporal data. In other words, the commands below are equivalent.
 
  ```shell
 DiploLocus likelihood
 DiploLocus-likelihood
  ````
- Running one of the above commands will show
+ Running one of the above commands will list the possible comman dline arguments:
  ```shell
 DiploLocus likelihood
 #usage: DiploLocus likelihood [-h] --u01 U01 [--u10 U10] --Ne NE [--gen_time GEN_TIME]
@@ -137,22 +116,22 @@ DiploLocus likelihood
 #DiploLocus likelihood: error: the following arguments are required: --u01, --Ne, --init, -o/--out_prefix
 ```
 
-To categorize these arguments for a better understanding and smoother application, the six components listed below are the "must have"s for a complete `DiploLocus likelihood` run on the command-line interface.
+The following arguments are the "must have"s for a complete `DiploLocus likelihood` run using command-line interface:
 
 |                                                        | <b>Required Args</b>                                                                                                          | <b>Optional Args</b>                                                                                                                                                                                                                                                         |
 |--------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| <b>Population Parameters</b>                           | `--Ne [pop size]` <br> `--u01 [forward mut rate (gen/nt)]`                                                                    | `--u10 [backward mut rate (gen/nt)]` <br/> `--gen_time [time]`                                                                                                                                                                                                               |
+| <b>Population Parameters</b>                           | `--Ne [pop size]` <br> `--u01 [mut rate 0->1 (per gen/nt)]`                                                                    | `--u10 [mut rate 1->0 (gen/nt)]` <br/> `--gen_time [time]`                                                                                                                                                                                                               |
 | <b>Samples </b>  <br/>(VCF)                            | `--vcf <some.vcf(.gz)>` +<br/> `--info <info.table>` <br/>                                                                    | `--[ID/time/time_ago]_col [col name in <info.table>]` <br/> `--force_[hap/dip] {"all"/"none"/"ID1,ID2,..."}` <br/> `--snps {<snp.list>/"SNP1,SNP2,..."}` <br/> `--inds {<sampleID.list>/"ID1,ID2,..."}` <br/> `--snps {<snp.list>/"SNP1,SNP2,..."}` <br/>  `--minMAF [maf]`  |
 | <b>Samples </b>  <br/> (allele counts)                 | ` -i <allele.counts>` +<br/> `--sample_times[_ago] <t1,t2,...>`                                                               | `--snps {<snp.list>/"SNP1,SNP2,..."}`<br/> `--minMAF [freq]`                                                                                                                                                                                                                 |
-| <b>Initial Condition</b>                               | `--init {"uniform"/"initFreq"/"statBeta"}`                                                                                    | `--initFreq [freq]`<br/> `--init_[u01/u10] [forward/backward mut rate (gen/nt)]`                                                                                                                                                                                             |
-| <b>Selection Parameters</b>                            | Specify `s2` + either `s1` or `h`; <br>`--[linear/geom]_[x]_range="start,end,steps"` <br/> or `--fix_[x] [value/"V1,V2,..."]` | `--piecewise` + `--specify_piece <piece.file>` <br/> `--t0 [sel start time]` `--force_t0`                                                                                                                                                                                    |
+| <b>Initial Condition</b>                               | `--init {"uniform"/"initFreq"/"statBeta"}`                                                                                    | `--initFreq [freq]`<br/> `--init_[u01/u10] [mut rate 0->1/1->0 (gen/nt)]`                                                                                                                                                                                             |
+| <b>Selection Parameters</b>                            | Specify `s2` + either `s1` or `h`; <br>`--[linear/geom]_[x]_range="start,end,steps"` <br/> or `--fix_[x] [value/"V1,V2,..."]` | `--piecewise` + `--specify_piece <piece.file>` <br/> `--t0 [init time]` `--force_t0`                                                                                                                                                                                    |
 | <b>Output Options</b>                                  | `-o <prefix>` or `--out_prefix <prefix>`                                                                                      |                                                                                                                                                                                                                                                                              |
 | <b>Pre-computed On-grid Likelihoods</b><br/>(optional) | `--read_LL_from <LL.table>`                                                                                                   | `--gzip_surface`<br/>`--long_LL_table`<br/> `--get_[on/off]_grid_max`<br/> `--get_MLR` `--get_chi2_pval`                                                                                                                                                                     |
 
 
-With `-h` or `--help`, the user can retrieve the detailed help page for more information.
+With `-h` or `--help`, the user can retrieve the detailed usage for more information.
 
-<details><summary>Here is the full help page.</summary>
+<details><summary>Here is the full usage:</summary>
 
 
 ```shell
@@ -179,8 +158,8 @@ DiploLocus likelihood -h
 #  -v, --verbose         Option to write out selection coefficients when computing likelihoods.
 #
 #Population Parameters:
-#  --u01 U01             Forward mutation rate (/site/generation).
-#  --u10 U10             Backward mutation rate (/site/generation). Default to be equal to u01.
+#  --u01 U01             Mutation rate allele 0 to allele 1 (/site/generation).
+#  --u10 U10             Mutation rate allele 1 to allele 0 (/site/generation). Default to be equal to u01.
 #  --Ne NE               Effective diploid population size (i.e., total #(allele)=2Ne ).
 #  --gen_time GEN_TIME   Average generation time in the same unit as provided to '--sample_times' or
 #                        '--sample_times_ago' argument. Default is 1.
@@ -247,26 +226,27 @@ DiploLocus likelihood -h
 #                        Specify initial condition for computing likelihoods.
 #  --initFreq INITFREQ   Required when --init="initFreq". Specify the allele frequency when selection
 #                        started.
-#  --t0 T0               The time point (in generations) when selection starts. Default is the
-#                        earliest sampling time.
+#  --t0 T0               The time point (in generations) when initial distribution is assumed and selection 
+#                        starts. Default is the first sampling time. IMPORTANT: This is interpreted the
+#                        same way as the specified sampling times. Thus, if --sample_times or --time_col
+#                        is used, this time is regular (forward), whereas with --sample_times_ago or
+#                        --time_ago_col, this is time before present (backward).
 #  --force_t0            Option to force implement a t0 later than the earliest samples. Data prior
 #                        to t0 will be ignored.
-#  --init_u01 INIT_U01   Specify forward mutation rate for the stationary distribution "statBeta".
+#  --init_u01 INIT_U01   Specify mutation rate allele 0 to allele 1 for the initial distribution "statBeta".
 #                        Default to be identical to u01.
-#  --init_u10 INIT_U10   Specify backward mutation rate for the stationary distribution. Default to
-#                        be identical to u10.
+#  --init_u10 INIT_U10   Specify mutation rate allele 1 to allele 0 for the initial distribution.
+#                        Default to be identical to u10.
 #
 #Optional Mode(s):
-#  --piecewise           Option to assume changing selection coefficients and choose the time period
-#                        when they vary (by the grid specified). If selected, user must provide an
-#                        additional text file, using "--specify_piece", to specify which period to
-#                        vary [s].
+#  --piecewise           Assume different selection coefficients in different periods. If selected, user
+#                        must provide additional text file, using "--specify_piece", to specify in which
+#                        period to vary [s] (and compute likelihooods on the given grid).
 #  --specify_piece SPECIFY_PIECE
-#                        Path and name to the helper file when "--piecewise" is selected. It should
-#                        be tab-delimited with 4 columns, using "x" to indicate the coefficients to
-#                        vary in the matching time period: <from (forward gen#> <to (forward gen#> >
-#                        <s1> <s2>
-#
+#                        Name of the file specifying selection periods when "--piecewise" is selected.
+#                        It should be tab-delimited with 4 columns, using "x" instead of s1 and s2 to
+#                        indicate the coefficients to vary in the respective time period:
+#                        <from (forward gen#> <to (forward gen#> > <s1> <s2>
 #Parameter Grids (specify s2 and [s1 | h]):
 #  --fix_s2 S2           Provide one or more fixed values for s_AA (fitness gain in homozygotes),
 #                        separated by comma (without space).
@@ -334,127 +314,109 @@ DiploLocus likelihood -h
 ### Input
 <a id="LL_input"> </a>
 
-In order to compute likelihood for observing patterns of genetic variation in the given temporal samples, `DiploLocus likelihood` must be informed of 
-1) polarized allele counts (total number of observed alleles and its frequency in the sample), and 
-2) times when samples were taken.
+In order to compute likelihood for observing patterns of genetic variation in the given temporal samples, `DiploLocus likelihood` must be provided with: 
+1) Allele counts (total number of observed alleles and its frequency in the sample), and 
+2) Times when samples were taken.
 
-To provide such information, the users have two different ways to feed input: 
+To provide such information, the user has two options: 
 
 - **Option 1**: **_VCF file_** (following `--vcf`) with accompanying _**sample information table**_ (`--info`, see [here](#input_samps) for detail),
-  - The samples included in the VCF can be a mix of haploid and diploid genotypes. Genotypes for variants in pseudo-haploid genomes must be coded as a single-digit haplotype. 
+  - The samples included in the VCF can be a mix of (pseudo-)haploid and diploid genotypes. Genotypes for variants in (pseudo-)haploid genomes must be coded as a single allele at each locus. 
   - The user can choose subsets of samples (`--inds`) or SNPs (`--snps`), either through comma-separated strings on the commandline, or through a plain text file.
 
-- **Option 2**: Parsed **_allele counts file_** (`--infile` or `-i`) with pooled batches of polarized allele counts, whose **_sampling times_** (with `--sample_times[_ago] <t1,t2,...>`) _must_ be specified .  
-  - The values provided as sample times must be listed in the identical order as the sample batches listed in the input allele count file, and that the time unit to be 1. User must specify the species' generation time with `--gen_time <# unit>` or `--gen_per_unit_time <# gen>` if it's not 1.
+- **Option 2**: **_Allele counts file_** (`--infile` or `-i`) with pooled batches of allele counts, and the **_sampling time_** of each pool _must_ be specified (with `--sample_times[_ago] <t1,t2,...>`). 
+  - The values provided as sample times must be listed in the identical order as the sample batches listed in the input allele count file, where time is in units of 1 generation. User must specify the generation time with `--gen_time <# unit>` or `--gen_per_unit_time <# gen>` if it's not 1.
 
-In cases when a likelihood surface has already been computed, it may be desirable to let the program reuse the pre-computed log-likelihoods to infer off-grid max likelihoods and parameter estimates on an 1D pre-computed parameter grid. The user can use `--read_LL_from <LLmatrix_file>` to 
-
+In cases when a likelihood surface has already been computed, it is possible to let the program reuse the pre-computed log-likelihoods to infer off-grid max likelihoods and parameter estimates on an 1D pre-computed parameter grid. The user can use `--read_LL_from <LLmatrix_file>` to achieve this.
 
 The following subsections will describe in detail the requirements for either of the two options.
 
 #### Sample allele counts from parsed text file or VCF file
  <a id="input_samps"> </a>
 
-To present information on genetic variation of the samples, the user can go with either a VCF file or a parsed tab-delimited plain text file. All the genetic variants are expected to be _bi-allelic_, with their observed counts polarized, either by reference/alternative or derived/ancestral.
+To present information on genetic variation of the samples, the user can provide either a VCF file or a tab-delimited plain text file. All the genetic variants are expected to be _bi-allelic_. A positive selection coefficient indicates that the alternative allele is beneficial (or the allele whose counts are given in the allele count file).
 
-For VCF files (following `--vcf`), in addition to the [matching sample information table](#input_times), user should also pay attention to the format in which genotypes are presented and make sure they are uniform across all samples. [Example 2](.examples/README.md) shows an application of `DiploLocus likelihood` with VCF input.
+For VCF files (following `--vcf`), in addition to the [matching sample information table](#input_times), user should also pay attention to the format in which genotypes are presented. [Example 2](examples/README.md#example-2-selection-on-snps-in-lctmcm6-locus-within-uk-population-in-allen-acient-dna-resources-databse) shows an application of `DiploLocus likelihood` with VCF input.
 
-When diploid genotype calls exist in the data, the program will terminate itself without scanning if no heterozygote genotypes can be found. In such cases, user must specify the sample IDs (as used in VCF column names) to override and arbitrarily treat as haploids or diploids, using `--force_haps <id1,id2,...>` or `--force_dips <id1,id2,...>` tag.
+When diploid genotype calls are specified in the data, but no heterozygote genotypes calls exist, the program will terminate, because this likely indicates a pseudo-haploid genotype that is incorrectly specified as diploid. In such cases, user must specify the sample IDs (as used in VCF column names) to indicate which samples represent haploids or diploids, using `--force_haps <id1,id2,...>` or `--force_dips <id1,id2,...>` tag, which will in turn override this termination.
 
-- For the samples listed (comma-separated, without spaces) following `--force_haps`, the program will interpret haplotypes as-is while counting diploid genotypes as single alleles. That is, "0/0" will be count as "0", whereas "1" is still seen as "1". Note that the program will error out if any specified sample has a heterozygote genotype call.
+- For the samples listed (comma-separated, without spaces) following `--force_haps`, the program will interpret haplotypes as-is while counting diploid genotypes as single alleles. That is, "0/0" will be intrpreted as "0", and "1/1" will be interpreted as "1". Note that the program will terminate with an error if any specified sample has a heterozygote genotype call.
 
-- For the samples listed following `--force_dips`, the program will see diploid genotypes as-is and double the number of presented haploid genotypes. That is, "1" will be counted as "1/1".
+- For the samples listed following `--force_dips`, the program will interpret diploid genotypes as-is and interpret haploid genotypes as double the allele count. That is, "0" will be interpreted as "0/0", and "1" as "1/1".
 
-Alternatively, often in cases when the dating of sampling times is unreliable, the user can also pre-allocate temporal samples to discrete batches and specify the observed count and the sample size (total number of alleles observed). This type of input files (`--infile` or `-i`) should be a _tab-delimited_ plain-text file with header and must include at least one column of identifiers ("ID", "locus", or "position") and 2 x _K_ columns for the _K_ batches of temporal samples, one for observed counts (could be either integers or fractions) and another for sample sizes. Both counts must be ordered by the sampling times, with the leftmost number belonging to the most ancient sample(s). One example is the [input file for Example 1](examples/ex1_HorseLoci_count.txt):
+Alternatively, the user can supply a file where the temporal samples are grouped in discrete batches, with the observed count (dx) and the sample size (total number of alleles observed, nx) specified. This type of input files (`--infile` or `-i`) should be a _tab-delimited_ plain-text file with header. The first column has to be a unique identifier for the respective locus/dataset and has to have the header 'ID'. This unique identifier is used in the output. In addition, for _K_ batches of samples at different times, there have to be 2 x _K_ columns. Alternatingly, 'dx' for observed counts (could be either integers or fractions) and 'nx' for the sample size. Here x is an increasing index that starts at 1 to order the batches temporarily. Thus, the leftmost numbers belong to first sampling time and the rightmost to the last sampling time.
+
+An example is the [input file for Example 1](examples/ex1_HorseLoci_count.txt):
 ```txt
-##Parameters used in Steinruecken & Song (2012):
-### generation time 5 years,
-### u01 = u10 = 1e-6,
-### Ne = 2500, t0_asip = 7000/5 = 1400, t0_mc1r = 17000/5 = 3400
-##SampTimes.year.ago: 20000, 13100, 3700, 2800, 1100, 500 (BCE)
-##SampTimes.gen.ago: 4000, 2620, 740, 560, 220, 100
-locus   x1      n1      x2      n2      x3      n3      x4      n4      x5      n5      x6      n6
-ASIP    0       10      1       22      15      20      12      20      15      36      18      38
-MC1R    0       10      0       22      1       20      6       20      13      36      24      38
+# Data for loci related to horse coat coloration from Steinruecken & Song (2014)
+ID	d1	n1	d2	n2	d3	n3	d4	n4	d5	n5	d6	n6
+ASIP	0	10	1	22	15	20	12	20	15	36	18	38
+MC1R	0	10	0	22	1	20	6	20	13	36	24	38
 ```
-
 
 #### Sample information table for VCF input and sampling time points for allele count input
 <a id="input_times"> </a>
 
-If the user intends to provide sample genetic information using VCF (either `.vcf` or `.vcf.gz`) files, they must prepare an additional meta information for each of the sample such that they can be grouped by sampling times. More specifically, this information table is expected to be a _**tab-delimited**_ plain text file with at least two columns, "ID" and "Time_Ago" (or "Gen_Ago" or "Gen"), for each sample in the VCF file,_in the corresponding order_ that the samples are displayed in the VCF file. One example of such file is [`examples/ex2_UK_v52_1240K_4500-0BP_noSG_noRelatives_noContam_minCov0.info`](examples/ex2_UK_v52_1240K_4500-0BP_noSG_noRelatives_noContam_minCov0.info), which lays out the mean dated time (years before 1950, listed under the `Time_Ago` column) for each sample in the [matching VCF file](examples/ex2_UK_selectLoci_v52_1240K_4500-0YBP_noSG_noRelatives.vcf). 
+If the user is providing samples using VCF (either `.vcf` or `.vcf.gz`) files, they must prepare an additional file with meta information for each of the samples to specify the respective sampling times. More specifically, this information table is expected to be a _**tab-delimited**_ plain text file with at least two columns, "ID" and "Time_Ago" (or "Gen_Ago", "Gen", or specified using `--time_col` or `--time_ago_col`), for each sample in the VCF file, _in the corresponding order_ that the samples are provided in the VCF file. One example of such file is [`examples/Ex2_v54_UK_1240K_noFam_strictPASS_from4500.info`](examples/Ex2_v54_UK_1240K_noFam_strictPASS_from4500.info), which specifies the mean dated time (years before 1950, listed under the `Time_Ago` column) for each sample in the [matching VCF file](examples/Ex2_UK_v54.1_all_chr2_135e6-137e6.vcf). 
 
-
-
-For parsed allele count inputs, the user must provide additional information on timing with the argument `--sampling_times` or `--sampling_times_ago`, in the same order that sample genetic information is listed in the input file. That is, the times specified should be ascending when using the former (`--sampling_times`) and descending for the latter (`--sampling_times_ago`). 
-
-[//]: # (Depending on the time unit adopted, the user will decide whether to use `--gen_time` to specify how many units of time are in each generation for the organism.)
+For parsed allele count inputs, the user must provide additional information on timing with the argument `--sampling_times` or `--sampling_times_ago`, in the same order that sample batches are listed in the input file. That is, the times specified should be ascending when using the former (`--sampling_times`) or descending for the latter (`--sampling_times_ago`). 
 
 ##### Time units and generation times
 
-When not specified, the program takes the numbers provided either in `--info` file or through `--sample_times[_ago]` as the numbers of generations. That is, the default time unit is per generation.
+When not specified, the program takes the numbers provided either in `--info` file or through `--sample_times[_ago]` as the numbers of generations. That is, the default time unit one generation.
 
 In any case where the sampling times are not provided as the number of generations, the user should specify the generation time using either `--gen_time <# unit>` or `--gen_per_unit <# gen>`:
 
-- `--gen_time <# unit>`: For organisms who live multiple time units (as used in the numbers provided), use this tag to indicate the average number of time units per generation. E.g., if the sampling time points are listed as "years ago" and the organism have a mean generation time of 5 years, then use `--gen_time 5`. If time is provided as the number of week and the organism has on average 12 weeks between immediate generations, then use `--gen_time 12`
+- `--gen_time <# unit>`: For organisms who live multiple time units (as used in the numbers provided), use this tag to indicate the average number of time units per generation. E.g., if the sampling time points are listed as "years ago" and the organism have a mean generation time of 5 years, then use `--gen_time 5`. If time is provided as the number of week and the organism has on average 12 weeks between generations, then use `--gen_time 12`
 -  `--gen_per_unit <# gen>`: For organisms with short lifespans, sometimes it's more convenient to provide the number of generations within a given unit of time. For example, for a plant that flowers two times each year, one can use `--gen_per_unit 2` if the sampling times are presented in years.
 
 
 ### Initial condition
 <a id="LL_init"> </a>
-Initial condition refers to the initial probability distribution of allele frequency at $t_0$, the start of the process. There are three types of initial conditions available for users to specify (through `--init` flag):
-* `--init uniform`: As its name suggested, all allele frequencies have equal probablity density.
-* `--init initFreq --initFreq <freq>`: This specifies the exact allele frequency at the beginning and can be useful for experimental evolution data.
-* `--init statBeta --init_u10 <mut rate>`: This option specifies a stationary Beta distribution with parameters $\alpha=2N_eu_{01}^{(init)}$ and $\beta=2N_eu_{10}^{(init)}$. If the backward mutation rate $u_{10}$ isn't specified, it will be set to equate the forward mutation rate.
+Initial condition refers to the initial probability distribution of the allele frequency assumed at time $t_0$ (specified by `--t0`), and selection starts at this time as well. Note that this time is interpreted the same way as the specified sampling times. Thus, if `--sample_times` or `--time_col` is used, this time is regular (forward), whereas with `--sample_times_ago` or `--time_ago_col`, this is time before present (backward).
 
+There are three types of initial conditions available for users to specify (through `--init` flag):
+* `--init uniform`: As all allele frequencies have equal probablity.
+* `--init initFreq --initFreq <freq>`: This specifies the exact allele frequency at time $t_0$. This can be useful e.g. for experimental evolution data.
+* `--init statBeta --init_u01 <mut rate>`: This option specifies a stationary Beta distribution with parameters $\alpha=2N_eu_{01}^{(init)}$ and $\beta=2N_eu_{10}^{(init)}$. If the mutation rate $u_{10}$ is not specified, it will be set to $u_{10}$.
 
-Unless the exact selection scenario is known (see [Example 1](#exLL)) or the available sampling time points are too few, we recommend going with `uniform` to minimize prior assumptions.
+Unless the exact selection scenario is known (see [Example 1](examples/README.md#example-1-log-likelihood-surfaces-for-ancient-horse-mc1r-and-asip-loci)) or the available sampling time points are too few, we recommend using `uniform` to minimize prior assumptions.
  
-### Grid of values for selection coefficient
+### Grid of values for selection coefficients
 <a id="LL_grid"> </a>
 
-For diploids, `DiploLocus` follows two fitness schemes:
+`DiploLocus` can use the following two general diploid fitness schemes:
 
 | Genotype (focal: A) | AA            | Aa            | aa  |
 |---------------------|---------------|---------------|-----|
 | Fitness scheme 1    | $s_2$         | $h\cdot s_2$  | 1   |
 | Fitness scheme 2    | s<sub>2</sub> | s<sub>1</sub> | 1   | 
 
-Here, $s_2$ and $s_1is are short for $s_{AA}$ and $s_Aa$, respectively. The user can use either fitness scheme to construct your parameter grid. In both scheme, `s2` is a must-have. The user can fix its value with `--fix_s2 [num]` or examine a range of values along a geometric (symmetric relative to 0; `--geom_s2_range="left,right,#step"`) or linear () grid. Depending on the fitness scheme-of-choice, the user can also define the parameter space for `s1` or `h` in one of these three ways.
+Here, $s_2$ and $s_1$ are are short for $s_{AA}$ and $s_{Aa}$, respectively. The user can use either fitness scheme to construct the parameter grid. In both schemes, `s2` has to be specified. The user can fix its value with `--fix_s2 [num]` or examine a range of values along a geometric (symmetric around 0; `--geom_s2_range="left,right,#step"`) or linear (`--linear_s1_range="left,right,#step"`) grid. Depending on the fitness scheme-of-choice, the user can also define a parameter space for `s1` or `h` in one of these two ways (`--geom_[x]_range` or `--linear_[x]_range`) or fix the parameter.
 
-[//]: # (&#40;something to write about how sampling scheme and Ne affect the range of coefficient the algorithm is sensitive to.&#41;)
- 
 ### Output
 
 <a id="LL_output"></a>
 
-In general, two types of output could be generated under `likelihood` mode: 
+In general, two types of output can be generated using the `likelihood` mode: 
 * log-likelihood matrix computed under the given set of parameters, and 
-* on-/off-grid maximum likelihood on the specified 1-dimensional parameter grid (`--get_on_grid_max` or `--get_off_grid_max`) and the corresponding max likelihood ratios (`--get_MLR`). 
+* on-/off-grid maximum likelihood estimates on the specified 1-dimensional parameter grid (`--get_on_grid_max` or `--get_off_grid_max`) and the corresponding likelihood ratio statistics (`--get_MLR`). 
 
 #### Compute Log-likelihood surfaces
 <a id="LL_likelihood"></a>
-By default, the program will output all the log-likelihood values computed for each locus (say `L` locus) under each set of parameter values (say `P` pairs of selection coefficients) as an `L x P` matrix, saved to file `<outprefix>_LLsurfaces.table` or `<outprefix>_LLsurfaces.table.gz` (when using `--gzip_surface`).
 
-Alternatively, with flag `--long_LL_table`, users can choose to have them written to a long table instead, for convenience of downstream processing. The file will be tab-delimited with header and four columns: `ID`, `s1`, `s2`, and `loglikelihood`. The `--gzip_surface` otion applies here too.
+By default, the program will output all log-likelihood values computed for each locus (say `L` loci) under each set of parameter values (say `P` pairs of selection coefficients) as an `L x P` matrix, saved to file `<outprefix>_LLsurfaces.table` or `<outprefix>_LLsurfaces.table.gz` (when using `--gzip_surface`).
 
+Alternatively, with flag `--long_LL_table`, users can choose to have them written to a long table instead, for convenience of downstream processing. The file will be tab-delimited with header and four columns: `ID`, `s1`, `s2`, and `loglikelihood`. The `--gzip_surface` option can be used here as well.
  
 #### On- and off-grid maximum log-likelihoods on 1D parameter space
 <a id="interp"> </a>
-With more than one set of selection parameters are considered, users can choose to output on-grid MLRs with the flag `--get_on_grid_max`, written to file `<outprefix>_on-grid_maxLLs.txt`, which is tab-delimited and has columns `ID`, `ongrid_s1hat`, `ongrid_s2hat`, and `ongrid_maxLogLikelihood`. Further, with `--get_MLR`, the output will include another `MLR` column as the log ratio between the computed likelihood and the likelihood for the same locus to be under no selection (that is, $s_1=s_2=0$).
+
+With more than one set of selection parameters are considered, users can choose to output on-grid MLRs with the flag `--get_on_grid_max`, written to file `<outprefix>_on-grid_maxLLs.txt`, which is tab-delimited and has columns `ID`, `ongrid_s1hat`, `ongrid_s2hat`, and `ongrid_maxLogLikelihood`. Further, with `--get_MLR`, the output will include another `MLR` column with the likelihood ratio statistic, that is, two times the log ratio between the likelihood at the MLE and the likelihood for the same locus under neutrality (that is, $s_1=s_2=0$).
 
 When only one of the selection parameter (out of $s_1$, $s_2$, and $h$) changes in value and more than five grid points are considered, users can choose to obtain interpolated off-grid MLR from the computed values (`--get_off_grid_max`). 
 
-Either on- or off-grid, when the given parameters satisfy additive selection (dominance$h=0.5$, or homozygotes are twice as fit as heterozygote), the program can output the $p$ value under standard $\chi^2$ distribution (degree of freedom =1).
- 
- 
-[//]: # (### Discrete time-varying selection)
-
-<a id="LL_piece"> </a>
-<!-- 
-### Best practices
-<a id="LL_bestPract"> </a> -->
-
+Either on- or off-grid, when the given parameters satisfy additive selection (dominance $h=0.5$, or homozygotes are twice as fit as heterozygote), the program can output the $p$ value assuming that the likelihood ratio statistics follow a standard $\chi^2$ distribution (degree of freedom =1) under the null hypothesis of no selection.
 
 ----------------------------------------------
  
@@ -465,7 +427,7 @@ Either on- or off-grid, when the given parameters satisfy additive selection (do
 
 <a id="quickSim"></a>
 
-As with `likelihood`, indicating `simulate` to the main CLI script would call `DiploLocus_simulate.py`, which by itself is also fully functional. The commands below are equivalent:
+As with `likelihood`, indicating `simulate` to the main CLI tool is equivalent to calling `DiploLocus-simulate`:
 
 ```shell
 DiploLocus simulate
@@ -486,9 +448,9 @@ DiploLocus simulate
 #                           [--seed SD]
 #DiploLocus simulate: error: the following arguments are required: --u01, --Ne, --s1, --s2, --sample_times, --sample_sizes, --num_rep, --init, -o/--out_prefix
 ```
-Likewise, the user can check out the full help page with `-h`
+Likewise, the user can check out the full usage with `-h`
 
-<details><summary>Click here to see full help page</summary>
+<details><summary>Click here to see the full usage</summary>
 
 ```shell
 DiploLocus simulate -h
@@ -506,8 +468,8 @@ DiploLocus simulate -h
 #  -h, --help            show this help message and exit
 #
 # Population Parameters:
-#  --u01 U01             Forward mutation rate (/site/generation).
-#  --u10 U10             Backward mutation rate (/site/generation). Default to be equal to u01.
+#  --u01 U01             Mutation rate allele 0 to allele 1 (/site/generation).
+#  --u10 U10             Mutation rate allele 1 to allele 0 (/site/generation). Default is u01.
 #  --Ne NE               Effective diploid population size (i.e., total #(allele)=2Ne ).
 #
 # Selection Parameters:
@@ -547,28 +509,30 @@ DiploLocus simulate -h
 #  --initDistn INITDISTNFILE
 #                        Path and name to the file specifying a particular frequency distribution as
 #                        the initial condition.
-#  --init_u01 INIT_U01   Specify forward mutation rate for the stationary distribution. Default to be
-#                        identical to u01.
-#  --init_u10 INIT_U10   Specify backward mutation rate for the stationary distribution. Default to
-#                        be identical to u10.
-#
-# Other Diffusion Parameters:
-#  --deltaT DELTAT       Unit increment of time (in generations).
-#  --seed SD             Specify random seeds.
+#  --init_u01 INIT_U01   Specify mutation rate allele 0 to allele 1 for the initial distribution.
+#                        Default is u01.
+#  --init_u10 INIT_U10   Specify mutation rate allele 1 to allele 0 for the initial distribution.
+#                        Default is u10.
 #
 # Output Options:
 #  -o OUTPREFIX, --out_prefix OUTPREFIX
 #                        Path and prefix of the output file.
 #  --write_traj          Option to also write out the trajectories of replicates.
-#  --gzip_output {s,t,st,ts}
+#  --gzip_output {none,s,t,st,ts}
 #                        Option to write output in .gz format. Use "s" to indicate sample file, "t"
-#                        to indicate trajectory file, and "st" (or "ts") for both.
+#                        to indicate trajectory file, and "st" (or "ts") for both. Use "none" to not
+#                        zip either.
 #  --plot_trajs          Option to plot the population allele frequency trajectories of up to 10
 #                        replicates.
 #  --plot_samples        Option to plot the sample allele frequency trajectories of up to 10
 #                        replicates.
 #  --reps_to_plot REPS_TO_PLOT
 #                        Specify the replicates to plot. Default is the first 10 reps.
+#
+# Other Diffusion Parameters:
+#  --deltaT DELTAT       Unit increment of time (in generations).
+#  --seed SD             Specify random seed.
+#
 ```
 
 </details>
@@ -577,34 +541,29 @@ DiploLocus simulate -h
 
 <a id="sim_IO"> </a>
 
-The input required for simulations are, in comparison, simpler than that of the `likelihood` mode. Similarly, in the very least, the user must provide basic population parameters, _i.e._ mutation rate (`u01`, `u10`) and effective population size (`Ne`), sample times, sample sizes, and the number of replicates. In addition, same as in `likelihood`, the user must also specify the initial condition with `--init`. It is highly recommended that the user also specify the random seed (through `--seed`) as well. Example 3 demonstrates in detail how to parameterize a set of simulations.
+The input required for simulations are the population parameters, _i.e._ mutation rate (`u01`, `u10`) and effective population size (`Ne`), sample times, sample sizes, and the number of replicates. In addition, similar to `likelihood`, the user must also specify the initial condition with `--init`. It is highly recommended that the user also specify the random seed (through `--seed`). [Example 3](examples/README.md#example-3-simulating-temporal-allele-count-data-and-plot-their-trajectories) demonstrates in detail how to parameterize a set of simulations.
 
-For convenience, the table below lists the categories of input information and their arguments:
+The table below lists the main input arguments:
 
 
 |                              | <b>Required Args</b>                                                                   | <b>Optional Args</b>                                                                                                        |
 |------------------------------|----------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| <b>Population Parameters</b> | `--Ne [pop size]` <br> `--u01 [forward mut rate (gen/nt)]`                             | `--u10 [backward mut rate (gen/nt)]`                                                                                        |
+| <b>Population Parameters</b> | `--Ne [pop size]` <br> `--u01 [mut rate 0->1 (gen/nt)]`                             | `--u10 [mut rate 1->0 (gen/nt)]`                                                                                        |
 | <b>Sample Information</b>    | ` --sample_sizes <n1,n2,...>` <br/> `--sample_times <t1,t2,...>` <br/> `--num_rep <N>` | `--seed [seed]`<br/> `--deltaT [dT]`                                                                                        |
-| <b>Initial Condition</b>     | `--init {"uniform"/"initFreq"/"statBeta"}`                                             | `--initFreq [freq]`<br/> `--init_[u01/u10] [fore-/backward mut rate (gen/nt)]`<br/> `--initDistn <distnFile>`               |
+| <b>Initial Condition</b>     | `--init {"uniform"/"initFreq"/"statBeta"}`                                             | `--initFreq [freq]`<br/> `--init_[u01/u10] [mut rate 0->1/1->0 (gen/nt)]`<br/> `--initDistn <distnFile>`               |
 | <b>Selection Parameters</b>  | `--s1`, `--s2` <br/> followed by either a single value<br/>or comma-delimited values   | `--selection_change_times [t12,t23,...]`                                                                                    |
 | <b>Output Options</b>        | `-o <prefix>` or `--out_prefix <prefix>`                                               | `--gzip_output {s,t,st,ts}` <br/>`--write_traj`, <br/> `--plot_trajs`, `--plot_samples` <br/>`--reps_to_plot [id1,id2,...]` |
 
 
-As for the output, the software writes out the simulated samples as an allele count table (with `_samples.count` suffix) in the same format expected by the `likelihood` mode. See `example_outputs/Ex3_horseParam_piecewise_unifInit_200reps_seed1234_nonzeroLastSamples_notLost_samples.count`
+The software writes out the simulated samples as an allele count table (with `_samples.count` suffix) in the same format expected by the `likelihood` mode. See e.g. the ouput of [Example 3](examples/README.md#example-3-simulating-temporal-allele-count-data-and-plot-their-trajectories).
 
-When `--write_trajs` flag is on, an additional text file (with `.traj` suffix) will be generated to list out the allele frequency trajectories of all the replicates. More specifically, for `N` replicates simulated over a duration of `K` generations and `dT` iteration time ("delta T"), the file would be a comma-delimited `N`x`K/dT` table of allele frequency at each iteration, with each row representing a replicate. 
+When the flag `--write_trajs` is specified, an additional text file (with suffix `.traj`) will be generated to list out the allele frequency trajectories of all the replicates. More specifically, for `N` replicates simulated over a duration of `K` generations using `dT` time increments ("delta T"), the file would be a comma-delimited `N`x`K/dT` table of allele frequency at each iteration, with each row representing a replicate. 
 
 When a large number of replicates or a large number of iterations are simulated, the user can choose to output simulated data in `.gz` format. To do so, use `--gzip_output {s|t}` with `s` and `t` for "samples" and "trajectories", respectively.
 
-For the user's convenience, the software provide the option to plot out the sample and/or population allele frequency trajectories at the end of the simulation. The flags `--plot_trajs` and `--plot_samples` allow the user to turn on these options. Without the `--reps_to_plot [id1,id2,...]` instruction, the software will only consider the first ten replicates.
+For the user's convenience, the software provides the option to plot the sample and/or population allele frequency trajectories at the end of the simulation. The flags `--plot_trajs` and `--plot_samples` allow the user to turn on these options. Without the `--reps_to_plot [id1,id2,...]` instruction, the software will only consider the first ten replicates.
 
-To simulate discrete time-varying selection, the user can make use of `--selection_change_time` flag, pairing it with values provided to `--s1` and `--s2`. Example 3 shows in detail how to simulate data under such selection models.
-
-
-[//]: # (### Simulate discrete time-varying selection)
-
-[//]: # (<a id="sim_piece"></a>)
+To simulate discrete time-varying selection, the user can make use of `--selection_change_time` flag, pairing it with values provided to `--s1` and `--s2`. [Example 3](examples/README.md#example-3-simulating-temporal-allele-count-data-and-plot-their-trajectories) shows in detail how to simulate data under such selection models.
 
 
 
